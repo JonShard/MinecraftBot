@@ -22,6 +22,8 @@ LOGS_DIR = os.path.join(MC_SERVER_PATH, "logs")
 CRASH_REPORTS_DIR = os.path.join(MC_SERVER_PATH, "crash-reports")
 LOG_FILE_PATH = os.path.join(LOGS_DIR, "latest.log")
 
+SERVICE_NAME = "phoenix.service"  # Parameterize your MC service name here
+
 BACKUP_PATH = "/var/mcbackup/"
 DISK_PATHS = ["/dev/sda2", "/dev/sdb"]
 LATEST_LOG_LINES = 4
@@ -31,6 +33,12 @@ UPDATE_INTERVAL = 3
 CHAT_UPDATE_INTERVAL = 5
 # How long the chat window remains active in seconds (15 minutes)
 CHAT_DURATION = 900
+# How many lines of chat in code block
+CHAT_LINES = 10 
+
+# For the commands that cause changes:
+ADMIN_USERS = [257785837813497856, # TwistedAro
+               191561233755799554] # JonShard
 
 # ──────────────────────────
 # Global RCON + Discord Setup
@@ -43,9 +51,6 @@ mcr_connection = None
 intents = discord.Intents.default()
 intents.message_content = False
 bot = commands.Bot(command_prefix="!", intents=intents)
-
-# For the /command whitelist:
-ALLOWED_USERS = [123456789012345678, 987654321098765432]
 
 # ──────────────────────────
 # Single Chat Window *per channel*
@@ -109,18 +114,32 @@ def get_player_count_from_rcon():
 
 def get_recent_chat_lines(limit=10):
     """
-    Use zgrep to find lines containing <Name>, [Rcon], or [Server].
-    Tail the last 'limit' lines, remove timestamps/prefix.
+    Use zgrep to find lines containing <Name>, [Rcon], or [Server] in *.log files,
+    but exclude debug.log. Tail the last 'limit' lines, remove timestamps/prefix.
     """
     chat_pattern = r'Server thread/INFO\] \[net\.minecraft\.server\.MinecraftServer/\]: (\[Rcon\]|<|\[Server\])'
 
     try:
-        # Search .log and .log.gz files in LOGS_DIR:
-        # -E extended regex, -h (omit filenames), tail -n {limit}
-        cmd = f'zgrep -Eh "{chat_pattern}" "{LOGS_DIR}"/*.log* | tail -n {limit}'
+        # First, list all .log files (excluding .log.gz)
+        logs_list = subprocess.check_output(
+            f'ls -1 "{LOGS_DIR}"/*.log 2>/dev/null || true',
+            shell=True
+        ).decode(errors="ignore").split()
+
+        # Filter out debug.log
+        filtered_logs = [f for f in logs_list if "debug.log" not in f]
+
+        # If no logs remain, return
+        if not filtered_logs:
+            return ["No recent chat lines found (no .log files to read)."]
+
+        # Join the filtered log paths into one string (each quoted for safety)
+        logs_str = " ".join(f'"{x}"' for x in filtered_logs)
+
+        # Now run zgrep on those logs
+        cmd = f'zgrep -Eh "{chat_pattern}" {logs_str} | tail -n {limit}'
         chat_lines = subprocess.check_output(cmd, shell=True, stderr=subprocess.DEVNULL).decode(errors="ignore")
     except subprocess.CalledProcessError:
-        # No matches
         return ["No recent chat lines found."]
     except Exception as e:
         return [f"Error retrieving chat lines: {e}"]
@@ -132,14 +151,13 @@ def get_recent_chat_lines(limit=10):
     cleaned = []
     line_pattern = re.compile(r'^.*MinecraftServer/\]:\s+(.*)$')
     for line in chat_lines.splitlines():
-        m = line_pattern.match(line)
-        if m:
-            cleaned.append(m.group(1).strip())
+        match = line_pattern.match(line)
+        if match:
+            cleaned.append(match.group(1).strip())
         else:
             cleaned.append(line.strip())
 
     return cleaned[-limit:]
-
 # ──────────────────────────
 # Chat Window Logic
 # ──────────────────────────
@@ -166,7 +184,7 @@ async def post_or_refresh_chat_window(channel: discord.abc.Messageable):
         del CHAT_WINDOWS[channel_id]
 
     # 2) Create a new message
-    lines = get_recent_chat_lines(10)
+    lines = get_recent_chat_lines(CHAT_LINES)
     joined = "\n".join(lines)
     content = f"```text\n{joined}\n```"
 
@@ -272,13 +290,76 @@ async def slash_say(interaction: discord.Interaction, message: str):
 
 
 
+@bot.tree.command(name="server", description="Control or check the MC server instance (stop, start, restart, status).")
+@app_commands.describe(action="Choose an action for the server service.")
+@app_commands.choices(action=[
+    discord.app_commands.Choice(name="stop", value="stop"),
+    discord.app_commands.Choice(name="start", value="start"),
+    discord.app_commands.Choice(name="restart", value="restart"),
+    discord.app_commands.Choice(name="status", value="status")
+])
+async def slash_server(interaction: discord.Interaction, action: str):
+    """
+    Executes 'sudo systemctl <action> SERVICE_NAME'.
+    - For 'status', only show the top portion before the logs (stopping at the first blank line).
+    - For stop/start/restart, confirm success or failure.
+    """
+    try:
+        if action == "status":
+            # Show the current status of the service, ephemeral
+            raw_output = subprocess.check_output(
+                ["sudo", "systemctl", "status", SERVICE_NAME],
+                stderr=subprocess.STDOUT
+            ).decode(errors="ignore")
+
+            # Split at the first blank line to omit the trailing logs
+            parts = raw_output.split("\n\n", 1)
+            trimmed_output = parts[0].strip()  # Everything before the logs
+
+            # Optionally enforce Discord's 2000-char limit if needed:
+            if len(trimmed_output) > 1900:
+                trimmed_output = trimmed_output[:1900] + "\n... (truncated) ..."
+
+            await interaction.response.send_message(
+                f"**Status for** `{SERVICE_NAME}`:\n```\n{trimmed_output}\n```",
+                ephemeral=False
+            )
+        else:
+            #
+            if interaction.user.id not in ADMIN_USERS:
+                await interaction.response.send_message("Sorry, you are not authorized to use this command.", ephemeral=True)
+                return            
+            # stop, start, or restart
+            subprocess.check_output(
+                ["sudo", "systemctl", action, SERVICE_NAME],
+                stderr=subprocess.STDOUT
+            )
+            await interaction.response.send_message(
+                f"Server action **{action}** completed successfully on `{SERVICE_NAME}`.",
+                ephemeral=False
+            )
+    except subprocess.CalledProcessError as e:
+        # Capture any systemctl error output
+        error_output = e.output.decode(errors="ignore") if e.output else "No output"
+        # Crop if it's too large
+        if len(error_output) > 1900:
+            error_output = error_output[:1900] + "\n... (truncated) ..."
+        await interaction.response.send_message(
+            f"Failed to **{action}** `{SERVICE_NAME}`.\n```\n{error_output}\n```",
+            ephemeral=True
+        )
+    except Exception as ex:
+        await interaction.response.send_message(
+            f"Error running **{action}** on `{SERVICE_NAME}`: {ex}",
+            ephemeral=True
+        )
 
 
 @bot.tree.command(name="command", description="Execute an RCON command on the server")
 @app_commands.describe(rcon_command="The RCON command to run on the server.")
 async def slash_rcon_command(interaction: discord.Interaction, rcon_command: str):
-    """Runs an RCON command if the user is on the ALLOWED_USERS whitelist."""
-    if interaction.user.id not in ALLOWED_USERS:
+    """Runs an RCON command if the user is on the ADMIN_USERS whitelist."""
+    if interaction.user.id not in ADMIN_USERS:
         await interaction.response.send_message("Sorry, you are not authorized to use this command.", ephemeral=True)
         return
 
@@ -299,12 +380,74 @@ async def slash_rcon_command(interaction: discord.Interaction, rcon_command: str
 
 @bot.tree.command(name="status", description="Show the Minecraft server status")
 async def slash_status(interaction: discord.Interaction):
-    """Same logic you already have for /status."""
+    """
+    Slash command that responds with the server status, logs, memory, etc.
+    Replicates the old !status command.
+    """
+    global ext_chunk_count
+
     try:
-        # ... your existing code ...
-        await interaction.response.send_message("Status placeholder", ephemeral=False)
+        # Gather system/server information
+        ps_output = subprocess.check_output(['ps', '-eo', 'pid,comm,etime']).decode()
+        java_process_line = [line for line in ps_output.split('\n') if 'java' in line][0]
+        uptime = java_process_line.split()[-1]
+
+        disk_space = subprocess.check_output(['df'] + DISK_PATHS + ['-h']).decode()
+        backup_size = subprocess.check_output(['du', BACKUP_PATH, '-sch']).decode()
+        machine_uptime = subprocess.check_output(['uptime']).decode()
+        memory_usage = subprocess.check_output(['free', '-h']).decode()
+        latest_logs = subprocess.check_output(['tail', '-n', str(LATEST_LOG_LINES), LOG_FILE_PATH]).decode()
+
+        # Players who joined today
+        players_today_cmd = (
+            f"(zcat {LOGS_DIR}/$(date +'%Y-%m'-%d)*.log.gz && cat {os.path.join(LOGS_DIR, 'latest.log')}) "
+            f"| grep joined | awk '{{print $6}}' | sort -u"
+        )
+        players_today = subprocess.check_output([players_today_cmd], shell=True).decode()
+        players_today_count = players_today.count("\n")
+
+        # Crash reports
+        crashes_cmd = (
+            f"head -n 4 {CRASH_REPORTS_DIR}/* | grep -E 'Time: ' | awk '{{print $2 \" \" $3}}' | tail -n 5"
+        )
+        crashes_times = subprocess.check_output([crashes_cmd], shell=True).decode() or "No crashes yet! <3"
+
+        # Detect lag occurrences
+        with open(LOG_FILE_PATH, 'r') as log_file:
+            log_contents = log_file.read()
+        lag_occurrences = len(re.findall(r'Running \d+ms or \d+ ticks behind', log_contents))
+
+        # Average ms behind
+        ms_values = [int(match) for match in re.findall(r'Running (\d+)ms or \d+ ticks behind', log_contents)]
+        average_ms = sum(ms_values) / len(ms_values) if ms_values else 0
+
+        # Total missed ticks
+        total_missed_ticks = sum(
+            int(match) for match in re.findall(r'Running \d+ms or (\d+) ticks behind', log_contents)
+        )
+
+        output = (
+            f"MC Uptime: `{uptime}`\n"
+            f"Player Count: `{player_count}`\n"
+            # Keep the trailing space before the code block for Discord formatting:
+            f"Players Today: `{players_today_count}` ```\n{players_today} ```"
+            f"Last 5 crashes: ```\n{crashes_times}\n```"
+            f"Disk space:```\n{disk_space}```"
+            f"Backup size:```\n{backup_size}```"
+            f"Machine uptime:```\n{machine_uptime}```"
+            f"Memory usage:```\n{memory_usage}```"
+            f"Latest logs:```\n{latest_logs}```"
+            f"Running behind count: `{lag_occurrences}`\n"
+            f"Average ms: `{average_ms:.0f}` ms\n"
+            f"Total missed seconds: `{total_missed_ticks * 50 / 1000}`\n"
+            f"Saving external chunk log count: `{ext_chunk_count}`"
+        )
+
     except Exception as e:
-        await interaction.response.send_message(f"An error occurred: {str(e)}", ephemeral=True)
+        output = f"An error occurred: {str(e)}"
+
+    # Respond to the slash command so everyone can see
+    await interaction.response.send_message(output, ephemeral=False)
 
 # ──────────────────────────
 # Background Task: Status Presence
