@@ -2,6 +2,7 @@ import os
 import re
 import subprocess
 import asyncio
+import datetime
 
 import discord
 from discord.ext import commands
@@ -114,50 +115,94 @@ def get_player_count_from_rcon():
 
 def get_recent_chat_lines(limit=10):
     """
-    Use zgrep to find lines containing <Name>, [Rcon], or [Server] in *.log files,
-    but exclude debug.log. Tail the last 'limit' lines, remove timestamps/prefix.
+    - Gathers lines from *.log / *.log.gz (excluding debug logs).
+    - Extracts the date/time from each line (e.g. "[19Jan2025 20:04:15.335]").
+    - Sorts all matching lines chronologically by that datetime.
+    - Returns the last `limit` lines, each formatted as "HH:MM <chat>".
     """
+    # Matches lines containing <Name>, [Rcon], or [Server]
     chat_pattern = r'Server thread/INFO\] \[net\.minecraft\.server\.MinecraftServer/\]: (\[Rcon\]|<|\[Server\])'
 
+    # Full pattern to parse date/time:
+    # e.g., [19Jan2025 20:04:15.335] [Server thread/INFO] ...
+    # We'll capture group(1) as "19Jan2025 20:04:15.335"
+    # Later we'll parse that into a datetime object
+    full_line_regex = re.compile(
+        r'^\[(?P<date>[\d]{1,2}[A-Za-z]{3}\d{4}\s+\d{2}:\d{2}:\d{2}\.\d+)\]\s.*MinecraftServer/\]:\s+(?P<chat>.*)$'
+    )
+
     try:
-        # First, list all .log files (excluding .log.gz)
-        logs_list = subprocess.check_output(
-            f'ls -1 "{LOGS_DIR}"/*.log 2>/dev/null || true',
-            shell=True
-        ).decode(errors="ignore").split()
+        # 1) Build file list for *.log* (including .log.gz), excluding debug
+        logs_cmd = f'ls -1 "{LOGS_DIR}"/*.log* 2>/dev/null || true'
+        logs_list = subprocess.check_output(logs_cmd, shell=True).decode(errors="ignore").split()
 
-        # Filter out debug.log
-        filtered_logs = [f for f in logs_list if "debug.log" not in f]
-
-        # If no logs remain, return
+        # Exclude debug logs
+        filtered_logs = [f for f in logs_list if "debug" not in os.path.basename(f).lower()]
         if not filtered_logs:
-            return ["No recent chat lines found (no .log files to read)."]
+            return ["No recent chat lines found (no suitable log files)."]
 
-        # Join the filtered log paths into one string (each quoted for safety)
-        logs_str = " ".join(f'"{x}"' for x in filtered_logs)
+        # 2) zgrep lines matching chat_pattern from all these logs
+        #    We won't pipe to `tail` here because we need to parse and globally sort.
+        file_paths = " ".join(f'"{path}"' for path in filtered_logs)
+        grep_cmd = f'zgrep -Eh "{chat_pattern}" {file_paths}'
+        raw_output = subprocess.check_output(grep_cmd, shell=True, stderr=subprocess.DEVNULL).decode(errors="ignore")
 
-        # Now run zgrep on those logs
-        cmd = f'zgrep -Eh "{chat_pattern}" {logs_str} | tail -n {limit}'
-        chat_lines = subprocess.check_output(cmd, shell=True, stderr=subprocess.DEVNULL).decode(errors="ignore")
+        if not raw_output.strip():
+            return ["No recent chat lines found."]
     except subprocess.CalledProcessError:
         return ["No recent chat lines found."]
     except Exception as e:
         return [f"Error retrieving chat lines: {e}"]
 
-    if not chat_lines.strip():
-        return ["No recent chat lines found."]
+    # 3) Parse each line, extracting date/time + chat text
+    lines_with_dt = []
+    for line in raw_output.splitlines():
+        m = full_line_regex.match(line)
+        if not m:
+            # If the line doesn't match exactly, skip or do a fallback
+            # We'll do a fallback parse that tries to remove the prefix
+            fallback_chat = re.sub(r'^.*MinecraftServer/\]:\s+', '', line).strip()
+            # We'll store "None" for dt so we can still keep the line if needed
+            lines_with_dt.append((None, fallback_chat))
+            continue
 
-    # Remove everything before the actual chat portion
-    cleaned = []
-    line_pattern = re.compile(r'^.*MinecraftServer/\]:\s+(.*)$')
-    for line in chat_lines.splitlines():
-        match = line_pattern.match(line)
-        if match:
-            cleaned.append(match.group(1).strip())
+        date_str = m.group("date")   # e.g. "19Jan2025 20:04:15.335"
+        chat_msg = m.group("chat")   # e.g. "[Rcon]  jonshard: test5"
+
+        # 4) Convert date_str into a Python datetime. For example "19Jan2025 20:04:15.335"
+        #    We'll parse "DDMonYYYY HH:MM:SS.mmm"
+        #    Example format: "19Jan2025 20:04:15.335"
+        try:
+            # Build a datetime format string: day(2) abbreviated month(3) year(4) hour(2):minute(2):second(2).millis
+            dt = datetime.datetime.strptime(date_str, "%d%b%Y %H:%M:%S.%f")
+        except ValueError:
+            # Fallback if we can't parse for some reason
+            dt = None
+
+        # Store (dt, chat_msg) for sorting
+        lines_with_dt.append((dt, chat_msg.strip()))
+
+    # 5) Sort lines by dt (None goes first). We'll ensure lines with valid dt are at the end:
+    #    We want chronological order, so we can do:
+    lines_with_dt.sort(key=lambda x: (x[0] is None, x[0]))
+
+    # 6) Keep only the last `limit` lines
+    #    i.e. the most recent lines
+    lines_with_dt = lines_with_dt[-limit:]
+
+    # 7) Format each line as "HH:MM <chat>"
+    #    If dt is None, we omit the time or do "??:??"
+    final = []
+    for (dt, msg) in lines_with_dt:
+        if dt is not None:
+            hhmm = dt.strftime("%H:%M")
+            final.append(f"{hhmm} {msg}")
         else:
-            cleaned.append(line.strip())
+            final.append(msg)
 
-    return cleaned[-limit:]
+    return final
+
+
 # ──────────────────────────
 # Chat Window Logic
 # ──────────────────────────
@@ -457,32 +502,40 @@ async def update_server_status():
     global player_count, ext_chunk_count
     while True:
         try:
+            # 1) Try fetching the player count from RCON
             count = get_player_count_from_rcon()
-            if count is not None:
+
+            # 2) If we fail to get a count (i.e., None), declare "Server is offline"
+            if count is None:
+                status_message = "Server is offline"
+            else:
+                # Otherwise, update global `player_count`
                 player_count = count
 
-            with open(LOG_FILE_PATH, 'r') as log_file:
-                log_contents = log_file.read()
-            ext_chunk_count = len(re.findall(r'Saving oversized chunk', log_contents))
+                # Check for external chunk saving
+                with open(LOG_FILE_PATH, 'r') as log_file:
+                    log_contents = log_file.read()
+                ext_chunk_count = len(re.findall(r'Saving oversized chunk', log_contents))
 
-            if ext_chunk_count:
-                status_message = f"External chunks! ({ext_chunk_count})"
-            else:
-                lines = log_contents.splitlines()
-                latest_log = lines[-1] if lines else ""
-                lag_ms_match = re.search(r'Running (\d+)ms or \d+ ticks behind', latest_log)
-                if lag_ms_match:
-                    ms_value = int(lag_ms_match.group(1))
-                    status_message = f"{player_count} players online ({ms_value / 1000:.1f} sec behind)"
+                if ext_chunk_count:
+                    status_message = f"External chunks! ({ext_chunk_count})"
                 else:
-                    status_message = f"{player_count} players online"
-
+                    lines = log_contents.splitlines()
+                    latest_log = lines[-1] if lines else ""
+                    lag_ms_match = re.search(r'Running (\d+)ms or \d+ ticks behind', latest_log)
+                    if lag_ms_match:
+                        ms_value = int(lag_ms_match.group(1))
+                        status_message = f"{player_count} players online ({ms_value / 1000:.1f} sec behind)"
+                    else:
+                        status_message = f"{player_count} players online"
         except Exception as e:
             print(f"Error updating status: {e}")
             status_message = "Server is offline"
 
+        # 3) Finally, update bot’s presence with whatever status_message we settled on
         await bot.change_presence(activity=discord.Game(status_message))
         await asyncio.sleep(UPDATE_INTERVAL)
+
 
 # ──────────────────────────
 # Bot Lifecycle
