@@ -40,6 +40,14 @@ intents.message_content = False
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# This dict will keep track of active chat sessions by user ID.
+# Each entry will store {"task": Task object, "message": Discord Message, "remaining": int}
+CHAT_SESSIONS = {}
+
+# How often we refresh the chat display
+CHAT_UPDATE_INTERVAL = 5
+
+
 # ──────────────────────────
 # RCON Connection Utilities
 # ──────────────────────────
@@ -173,9 +181,60 @@ async def slash_status(interaction: discord.Interaction):
     await interaction.response.send_message(output, ephemeral=False)
 
 
-# ──────────────────────────
-# Slash Command: /say
-# ──────────────────────────
+
+# ----------------------------------------------------------------
+# HELPERS: GET CHAT LINES
+# ----------------------------------------------------------------
+def get_recent_chat_lines(limit=10):
+    """
+    Returns up to 'limit' lines of chat from your logs, cleaned up
+    by removing the timestamp and server prefix.
+    Example final output lines:
+       <PlayerName> Hello
+       [Rcon]  user: Hello from Rcon
+    """
+    # We look for lines that contain <PlayerName> or [Rcon] after the usual
+    # "MinecraftServer/]: " prefix. Adjust the pattern as needed
+    # if your server logs differ (e.g., if you also want to catch [Server] lines).
+    chat_pattern = r'Server thread/INFO\] \[net\.minecraft\.server\.MinecraftServer/\]: (\[Rcon\]|<)'
+
+    try:
+        # We use zgrep so it can handle both .log and .log.gz files.
+        # -E for extended regex, -h to omit filenames in output
+        chat_cmd = f'zgrep -Eh "{chat_pattern}" "{LOGS_DIR}"/*.log* | tail -n {limit}'
+        # Execute the command in a shell
+        chat_lines = subprocess.check_output(chat_cmd, shell=True, stderr=subprocess.DEVNULL).decode(errors="ignore")
+    except subprocess.CalledProcessError:
+        # If zgrep finds no matches, it can return non-zero. We'll treat that as no lines found.
+        return ["No recent chat lines found."]
+    except Exception as e:
+        # Any other unexpected errors
+        return [f"Error retrieving chat lines: {e}"]
+
+    # If we got nothing back, return a friendly message
+    if not chat_lines.strip():
+        return ["No recent chat lines found."]
+
+    # Clean each line to remove everything before the chat portion,
+    # e.g. removing [19Jan2025 15:04:50.476] [Server thread/INFO] ...
+    cleaned = []
+    line_pattern = re.compile(r'^.*MinecraftServer/\]:\s+(.*)$')
+    for line in chat_lines.splitlines():
+        match = line_pattern.match(line)
+        if match:
+            # Keep only the content after "MinecraftServer/]: "
+            cleaned.append(match.group(1).strip())
+        else:
+            # Fallback (unlikely, but just in case)
+            cleaned.append(line.strip())
+
+    # Return only the last `limit` lines (though tail already ensures we have at most that many)
+    return cleaned[-limit:]
+
+
+# ----------------------------------------------------------------
+# /SAY COMMAND
+# ----------------------------------------------------------------
 @bot.tree.command(name="say", description="Send a chat message to the server from Discord")
 @app_commands.describe(message="The message to send")
 async def slash_say(interaction: discord.Interaction, message: str):
@@ -196,7 +255,7 @@ async def slash_say(interaction: discord.Interaction, message: str):
         # Format the message with Minecraft color/format codes:
         # §7 is gray (faint), §o is italic, §r resets formatting.
         # Example result in Minecraft chat:
-        # MyDiscordName: Hello from Discord
+        # (Discord) MyDiscordName: Hello from Discord
         # In faint gray, with the username italicized.
         say_string = f"§7 §o{interaction.user.name}: {message}§r"
 
@@ -205,7 +264,7 @@ async def slash_say(interaction: discord.Interaction, message: str):
 
         # Let the Discord user know it's been sent
         await interaction.response.send_message(
-            f"Sent to server chat:\n`(Discord) {interaction.user.name}: {message}`",
+            f"Sent to server chat:\n`{interaction.user.name}: {message}`",
             ephemeral=False
         )
 
@@ -215,6 +274,83 @@ async def slash_say(interaction: discord.Interaction, message: str):
             f"Failed to send message to server: {e}",
             ephemeral=True
         )
+
+    # If the user has an active chat session, reset the 5-minute timer
+    if interaction.user.id in CHAT_SESSIONS:
+        CHAT_SESSIONS[interaction.user.id]["remaining"] = 300  # Reset to 5 minutes
+        print(f"Reset chat session timer for user {interaction.user.id}")
+
+# ----------------------------------------------------------------
+# /CHAT COMMAND
+# ----------------------------------------------------------------
+
+@bot.tree.command(name="chat", description="Show a live-updating window of the last 10 lines of game chat.")
+async def slash_chat(interaction: discord.Interaction):
+    """
+    Starts (or restarts) a session showing a scrolling window of the last 10 chat lines
+    for 5 minutes. If the user runs /say, we reset that 5-minute timer.
+    """
+    user_id = interaction.user.id
+
+    # If a chat session is already running for this user, cancel the old one
+    if user_id in CHAT_SESSIONS:
+        old_task = CHAT_SESSIONS[user_id]["task"]
+        old_task.cancel()
+
+    # Send an initial response with the chat lines
+    lines = get_recent_chat_lines(10)
+    joined_lines = "\n".join(lines)
+    content = f"```text\n{joined_lines}\n```"
+    await interaction.response.send_message(content, ephemeral=False)
+    
+    # We need a reference to the message to edit it
+    msg = await interaction.original_response()
+
+    # Create a new session with a background update task
+    session_data = {
+        "message": msg,
+        "remaining": 300  # 5 minutes in seconds
+    }
+    task = bot.loop.create_task(update_chat_session(user_id))
+    session_data["task"] = task
+    CHAT_SESSIONS[user_id] = session_data
+
+    print(f"Started chat session for user {user_id}.")
+
+async def update_chat_session(user_id: int):
+    """
+    Background task that updates the user's /chat message every CHAT_UPDATE_INTERVAL seconds.
+    Stops after 'remaining' runs out.
+    """
+    while True:
+        await asyncio.sleep(CHAT_UPDATE_INTERVAL)
+
+        # If user session is gone, stop
+        if user_id not in CHAT_SESSIONS:
+            return
+
+        session_data = CHAT_SESSIONS[user_id]
+        session_data["remaining"] -= CHAT_UPDATE_INTERVAL
+
+        # If time is up, end session
+        if session_data["remaining"] <= 0:
+            # Optionally delete the message or just stop updating
+            # Here we'll just stop updating
+            del CHAT_SESSIONS[user_id]
+            print(f"Chat session for user {user_id} ended (timer).")
+            return
+
+        # Otherwise, update the message content
+        lines = get_recent_chat_lines(10)
+        joined_lines = "\n".join(lines)
+        new_content = f"```text\n{joined_lines}\n```"
+        try:
+            await session_data["message"].edit(content=new_content)
+        except discord.HTTPException as e:
+            print(f"Failed to edit chat message: {e}")
+            # If we can’t edit, end the session
+            del CHAT_SESSIONS[user_id]
+            return
 
 
 
