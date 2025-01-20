@@ -725,12 +725,10 @@ def write_player_count_csv(row):
 
 def generate_player_count_graph():
     """
-    Reads the CSV (Timestamp, PlayerCount), parses timestamps,
-    and plots a line graph saved to PLAYER_COUNT_PNG with a dark theme,
-    forcing y-axis ticks to be integers.
+    Reads the CSV (Timestamp, PlayerCount), groups by day to calculate daily max,
+    and plots a column chart (bar chart) saved to PLAYER_COUNT_PNG with a dark theme.
     """
-    times = []
-    counts = []
+    daily_counts = {}
 
     # 1) Read the CSV data
     if not os.path.isfile(STAT_CSV_PATH):
@@ -750,35 +748,39 @@ def generate_player_count_graph():
             except ValueError:
                 continue
 
-            times.append(dt)
-            counts.append(count)
+            # Group by date (YYYY-MM-DD) and calculate daily max
+            date_str = dt.strftime("%Y-%m-%d")
+            if date_str not in daily_counts:
+                daily_counts[date_str] = count
+            else:
+                daily_counts[date_str] = max(daily_counts[date_str], count)
 
-    if not times:
+    if not daily_counts:
         print("No data in CSV to plot.")
         return
 
-    # 2) Use a dark style for Discord
+    # 2) Prepare data for plotting
+    dates = list(daily_counts.keys())
+    max_counts = list(daily_counts.values())
+
+    # 3) Use a dark style for Discord
     plt.style.use('dark_background')
 
     plt.figure(figsize=(8, 4))
-    plt.plot(times, counts, marker="o", linestyle="-", color="#00b0f4", label="Players Online")
+    plt.bar(dates, max_counts, color="#00b0f4", label="Daily Max Players")
 
-    # 3) Set the title, labels, and color them white
-    plt.title("Player Count Over Time", color="white")
-    plt.xlabel("Time", color="white")
+    # 4) Set the title, labels, and color them white
+    plt.title("Daily Max Player Count", color="white")
+    plt.xlabel("Date", color="white")
     plt.ylabel("Players Online", color="white")
 
     # Rotate x-ticks for readability
     plt.xticks(rotation=45, color="white")
 
-    # 4) Force y-axis ticks to integers
+    # Force y-axis ticks to integers
     ax = plt.gca()
     ax.yaxis.set_major_locator(mticker.MaxNLocator(integer=True))
     plt.yticks(color="white")
-
-    # Optional: set y-limits from 0 up to max+1 for clarity
-    if counts:
-        plt.ylim(0, max(counts) + 1)
 
     # Add a grid (light gray for contrast)
     plt.grid(True, color="gray", alpha=0.3)
@@ -789,7 +791,8 @@ def generate_player_count_graph():
     plt.tight_layout()
     plt.savefig(PLAYER_COUNT_PNG)
     plt.close()
-    print(f"Saved dark-themed plot with integer y-axis to {PLAYER_COUNT_PNG}.")
+    print(f"Saved dark-themed bar chart to {PLAYER_COUNT_PNG}.")
+
 
 
 
