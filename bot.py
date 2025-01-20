@@ -335,7 +335,7 @@ async def slash_say(interaction: discord.Interaction, message: str):
 
 
 
-@bot.tree.command(name="server", description="Control or check the MC server instance (stop, start, restart, status).")
+@bot.tree.command(name="server", description="🔒 Control or check the MC server instance (stop, start, restart, status).")
 @app_commands.describe(action="Choose an action for the server service.")
 @app_commands.choices(action=[
     discord.app_commands.Choice(name="stop", value="stop"),
@@ -400,7 +400,7 @@ async def slash_server(interaction: discord.Interaction, action: str):
         )
 
 
-@bot.tree.command(name="command", description="Execute an RCON command on the server")
+@bot.tree.command(name="command", description="🔒Execute an RCON command on the server")
 @app_commands.describe(rcon_command="The RCON command to run on the server.")
 async def slash_rcon_command(interaction: discord.Interaction, rcon_command: str):
     """Runs an RCON command if the user is on the ADMIN_USERS whitelist."""
@@ -493,6 +493,126 @@ async def slash_status(interaction: discord.Interaction):
 
     # Respond to the slash command so everyone can see
     await interaction.response.send_message(output, ephemeral=False)
+
+
+@bot.tree.command(name="players", description="Show who is online, how many joined today, and who has joined today.")
+async def slash_players(interaction: discord.Interaction):
+    """
+    1) Counts how many players joined yesterday, how many are online now, and how many joined today.
+    2) Displays that info at the top in plain text.
+    3) Then shows two code blocks:
+       - "■■■■ Players Joined Today (X) ■■■■"
+       - "■■■■ Currently Online (Y) ■■■■"
+    """
+    await interaction.response.defer(ephemeral=False, thinking=True)
+
+    # ─── 1) PLAYERS WHO JOINED YESTERDAY ───
+    try:
+        # Similar approach to the "players who joined today," but for "yesterday" logs
+        # For instance, date -d '1 day ago' for the day:
+        # (zcat logs/2025-01-18*.log.gz && cat logs/latest.log) ...
+        players_yesterday_cmd = (
+            f"(zcat {LOGS_DIR}/$(date +'%Y-%m'-%d -d '1 day ago')*.log.gz 2>/dev/null || true) "
+            f"| grep joined | awk '{{print $6}}' | sort -u"
+        )
+        players_yesterday = subprocess.check_output(
+            [players_yesterday_cmd], shell=True
+        ).decode(errors="ignore").strip()
+        if players_yesterday:
+            players_yesterday_count = players_yesterday.count("\n") + 1
+        else:
+            players_yesterday_count = 0
+    except Exception as e:
+        print(f"Error retrieving players who joined yesterday: {e}")
+        players_yesterday_count = 0
+
+    # ─── 2) CURRENT ONLINE PLAYERS VIA RCON ───
+    ensure_rcon_connection()
+    if mcr_connection is None:
+        # We'll still try to show the other info even if RCON is down
+        player_count_now = 0
+        currently_online = []
+    else:
+        try:
+            list_response = mcr_connection.command("list")
+            match = re.search(r"There are (\d+) of a max of \d+ players online:?\s*(.*)", list_response)
+            if match:
+                player_count_now = int(match.group(1))
+                online_names_str = match.group(2).strip()
+                if online_names_str:
+                    currently_online = [name.strip() for name in online_names_str.split(",")]
+                else:
+                    currently_online = []
+            else:
+                player_count_now = 0
+                currently_online = []
+        except Exception as e:
+            close_rcon_connection()
+            print(f"Failed to retrieve current player list: {e}")
+            player_count_now = 0
+            currently_online = []
+
+    # ─── 3) PLAYERS WHO JOINED TODAY ───
+    try:
+        players_today_cmd = (
+            f"(zcat {LOGS_DIR}/$(date +'%Y-%m'-%d)*.log.gz && cat {os.path.join(LOGS_DIR, 'latest.log')}) "
+            f"| grep joined | awk '{{print $6}}' | sort -u"
+        )
+        players_today_output = subprocess.check_output([players_today_cmd], shell=True).decode(errors="ignore").strip()
+        if players_today_output:
+            players_today_list = players_today_output.split("\n")
+        else:
+            players_today_list = []
+    except Exception as e:
+        print(f"Error retrieving players who joined today: {e}")
+        players_today_list = []
+
+    players_today_count = len(players_today_list)
+
+    # ─── 4) BUILD TEXT OUTPUT ───
+
+    # Top lines (plain text, no code blocks):
+    # e.g.:
+    # Players Yesterday: 3
+    # Players Online Now: 2
+    # Players Joined Today: 5
+    top_text = (
+        f"Players Yesterday: `{players_yesterday_count}`"
+    )
+
+    # Code block #1: Players Joined Today
+    if players_today_count == 0:
+        joined_today_lines = "no players today"
+    else:
+        joined_today_lines = "\n".join(players_today_list)
+
+    code_block_today = (
+        "```text\n"
+        f"■■■■ Players Joined Today ({players_today_count}) ■■■■\n"
+        f"{joined_today_lines}\n"
+        "```"
+    )
+
+    # Code block #2: Currently Online
+    if player_count_now == 0:
+        currently_online_block = "no players currently online"
+    else:
+        currently_online_block = "\n".join(currently_online)
+
+    code_block_online = (
+        "```text\n"
+        f"■■■■ Currently Online ({player_count_now}) ■■■■\n"
+        f"{currently_online_block}\n"
+        "```"
+    )
+
+    # Final response
+    reply = f"{top_text}\n{code_block_today}{code_block_online}"
+
+    await interaction.followup.send(reply, ephemeral=False)
+
+
+
 
 # ──────────────────────────
 # Background Task: Status Presence
