@@ -5,6 +5,12 @@ import asyncio
 import datetime
 import csv
 
+
+import matplotlib
+matplotlib.use('Agg')  # Use a non-GUI backend
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
+
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -26,6 +32,7 @@ LOG_FILE_PATH = os.path.join(LOGS_DIR, "latest.log")
 
 STAT_CSV_PATH = "stats.csv"
 STAT_CSV_INTERVAL = 900
+PLAYER_COUNT_PNG = "stat_players.png"
 
 SERVICE_NAME = "phoenix.service"  # Parameterize your MC service name here
 
@@ -613,7 +620,12 @@ async def slash_players(interaction: discord.Interaction):
     # Final response
     reply = f"{top_text}\n{code_block_today}{code_block_online}"
 
-    await interaction.followup.send(reply, ephemeral=False)
+        # Now send the final message with an attached file
+    await interaction.followup.send(
+        content=reply,
+        ephemeral=False,
+        file=discord.File("stat_players.png", filename="stat_players.png")
+    )
 
 
 
@@ -689,6 +701,9 @@ async def player_count_logger_task():
         # Write (or append) to the CSV
         write_player_count_csv(row)
 
+        # After writing the row, generate a fresh graph
+        generate_player_count_graph()
+
 def write_player_count_csv(row):
     """
     Appends a single row [timestamp, player_count] to STAT_CSV_PATH.
@@ -706,6 +721,76 @@ def write_player_count_csv(row):
 
         # Append our new row
         writer.writerow(row)
+
+
+def generate_player_count_graph():
+    """
+    Reads the CSV (Timestamp, PlayerCount), parses timestamps,
+    and plots a line graph saved to PLAYER_COUNT_PNG with a dark theme,
+    forcing y-axis ticks to be integers.
+    """
+    times = []
+    counts = []
+
+    # 1) Read the CSV data
+    if not os.path.isfile(STAT_CSV_PATH):
+        print("No CSV found to plot.")
+        return
+
+    with open(STAT_CSV_PATH, mode="r", encoding="utf-8") as csvfile:
+        reader = csv.reader(csvfile)
+        header = next(reader, None)  # Skip header row if present
+        for row in reader:
+            if len(row) < 2:
+                continue
+            timestamp_str, count_str = row[0], row[1]
+            try:
+                dt = datetime.datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M")
+                count = int(count_str)
+            except ValueError:
+                continue
+
+            times.append(dt)
+            counts.append(count)
+
+    if not times:
+        print("No data in CSV to plot.")
+        return
+
+    # 2) Use a dark style for Discord
+    plt.style.use('dark_background')
+
+    plt.figure(figsize=(8, 4))
+    plt.plot(times, counts, marker="o", linestyle="-", color="#00b0f4", label="Players Online")
+
+    # 3) Set the title, labels, and color them white
+    plt.title("Player Count Over Time", color="white")
+    plt.xlabel("Time", color="white")
+    plt.ylabel("Players Online", color="white")
+
+    # Rotate x-ticks for readability
+    plt.xticks(rotation=45, color="white")
+
+    # 4) Force y-axis ticks to integers
+    ax = plt.gca()
+    ax.yaxis.set_major_locator(mticker.MaxNLocator(integer=True))
+    plt.yticks(color="white")
+
+    # Optional: set y-limits from 0 up to max+1 for clarity
+    if counts:
+        plt.ylim(0, max(counts) + 1)
+
+    # Add a grid (light gray for contrast)
+    plt.grid(True, color="gray", alpha=0.3)
+
+    # Legend with a Discord-like dark gray background
+    plt.legend(facecolor="#2f3136", edgecolor="none")
+
+    plt.tight_layout()
+    plt.savefig(PLAYER_COUNT_PNG)
+    plt.close()
+    print(f"Saved dark-themed plot with integer y-axis to {PLAYER_COUNT_PNG}.")
+
 
 
 # ──────────────────────────
@@ -726,5 +811,5 @@ async def on_ready():
 
     # Start the new CSV logger in the background
     bot.loop.create_task(player_count_logger_task())
-
+    generate_player_count_graph()
 bot.run(BOT_TOKEN)
