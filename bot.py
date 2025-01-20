@@ -345,6 +345,47 @@ async def slash_say(interaction: discord.Interaction, message: str):
         print(f"Chat window moved to bottom after /say in channel {channel_id}.")
 
 
+@bot.tree.command(name="kill", description="🔒 Kill specific types of entities in the Minecraft world.")
+@app_commands.describe(target="What to kill (items or mobs).")
+@app_commands.choices(target=[
+    discord.app_commands.Choice(name="items", value="items"),
+    discord.app_commands.Choice(name="mobs", value="mobs"),
+])
+async def slash_kill(interaction: discord.Interaction, target: str):
+    """
+    Kills specific types of entities in the Minecraft world based on the selected target.
+    - items: Kills all dropped items.
+    - mobs: Kills all creatures except villagers and traders.
+    """
+    await interaction.response.defer(ephemeral=False, thinking=True)
+
+    ensure_rcon_connection()
+    if mcr_connection is None:
+        await interaction.followup.send("Could not connect to RCON. Try again later.", ephemeral=True)
+        return
+
+    try:
+        if target == "items":
+            command = "kill @e[type=item]"
+            response = mcr_connection.command(command)
+            await interaction.followup.send(
+                content=f"`{response.strip()}`\nAll dropped items have been cleared from the world.",
+                ephemeral=False
+            )
+        elif target == "mobs":
+            command = "kill @e[type=!player,type=!villager,type=!wandering_trader]"
+            response = mcr_connection.command(command)
+            await interaction.followup.send(
+                content=f"`{response.strip()}`\nAll creatures (except villagers and traders) have been killed.",
+                ephemeral=False
+            )
+        else:
+            await interaction.followup.send("Invalid target. Please choose 'items' or 'mobs'.", ephemeral=True)
+    except Exception as e:
+        close_rcon_connection()
+        await interaction.followup.send(f"Failed to execute kill command: {e}", ephemeral=True)
+
+
 
 @bot.tree.command(name="server", description="🔒 Control or check the MC server instance (stop, start, restart, status).")
 @app_commands.describe(action="Choose an action for the server service.")
@@ -381,7 +422,7 @@ async def slash_server(interaction: discord.Interaction, action: str):
                 ephemeral=False
             )
         else:
-            #
+            # Authorization (whitelist)
             if interaction.user.id not in ADMIN_USERS:
                 await interaction.response.send_message("Sorry, you are not authorized to use this command.", ephemeral=True)
                 return            
