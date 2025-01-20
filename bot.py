@@ -3,6 +3,7 @@ import re
 import subprocess
 import asyncio
 import datetime
+import csv
 
 import discord
 from discord.ext import commands
@@ -22,6 +23,9 @@ MC_SERVER_PATH = "/mnt/SSD120GB/phonix/PhoenixDenPack2025"
 LOGS_DIR = os.path.join(MC_SERVER_PATH, "logs")
 CRASH_REPORTS_DIR = os.path.join(MC_SERVER_PATH, "crash-reports")
 LOG_FILE_PATH = os.path.join(LOGS_DIR, "latest.log")
+
+STAT_CSV_PATH = "stats.csv"
+STAT_CSV_INTERVAL = 900
 
 SERVICE_NAME = "phoenix.service"  # Parameterize your MC service name here
 
@@ -495,7 +499,7 @@ async def slash_status(interaction: discord.Interaction):
     await interaction.response.send_message(output, ephemeral=False)
 
 
-@bot.tree.command(name="players", description="Show who is online, how many joined today, and who has joined today.")
+@bot.tree.command(name="players", description="Show who is online, who has joined today and how many joined yesterday.")
 async def slash_players(interaction: discord.Interaction):
     """
     1) Counts how many players joined yesterday, how many are online now, and how many joined today.
@@ -657,6 +661,53 @@ async def update_server_status():
         await asyncio.sleep(UPDATE_INTERVAL)
 
 
+async def player_count_logger_task():
+    """
+    A background task that runs indefinitely,
+    logging the player count to a CSV file every 15 minutes.
+    """
+    while True:
+        await asyncio.sleep(STAT_CSV_INTERVAL)  # 15 minutes in seconds
+
+        # Attempt to get the latest player count from your global or via RCON
+        # (Here we assume you already update 'player_count' in update_server_status,
+        #  so we just read that global variable.)
+        global player_count
+
+        # If player_count is None or invalid, you could skip or set it to 0
+        if player_count is None:
+            count_to_log = 0
+        else:
+            count_to_log = player_count
+
+        # Prepare CSV row data
+        # Example: 2025-01-19 20:45, 5
+        now = datetime.datetime.now()
+        timestamp = now.strftime("%Y-%m-%d %H:%M")
+        row = [timestamp, count_to_log]
+
+        # Write (or append) to the CSV
+        write_player_count_csv(row)
+
+def write_player_count_csv(row):
+    """
+    Appends a single row [timestamp, player_count] to STAT_CSV_PATH.
+    If the file doesn't exist, writes a header first.
+    """
+    print(f"Writing row to {STAT_CSV_PATH}: {row}")  # Debug
+    file_exists = os.path.isfile(STAT_CSV_PATH)
+
+    with open(STAT_CSV_PATH, mode="a", newline="", encoding="utf-8") as csvfile:
+        writer = csv.writer(csvfile)
+
+        # If it's a new file, write a header
+        if not file_exists:
+            writer.writerow(["Timestamp", "PlayerCount"])
+
+        # Append our new row
+        writer.writerow(row)
+
+
 # ──────────────────────────
 # Bot Lifecycle
 # ──────────────────────────
@@ -672,5 +723,8 @@ async def on_ready():
     ensure_rcon_connection()
     bot.loop.create_task(update_server_status())
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
+
+    # Start the new CSV logger in the background
+    bot.loop.create_task(player_count_logger_task())
 
 bot.run(BOT_TOKEN)
