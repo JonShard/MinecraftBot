@@ -50,6 +50,8 @@ CHAT_LINES = 10
 
 # For the commands that cause changes:
 ADMIN_USERS = [257785837813497856, # TwistedAro
+               209382762971398144, # Algodoogle
+               300930955579752448, # EarthFishy
                191561233755799554] # JonShard
 
 # ──────────────────────────
@@ -345,17 +347,21 @@ async def slash_say(interaction: discord.Interaction, message: str):
         print(f"Chat window moved to bottom after /say in channel {channel_id}.")
 
 
-@bot.tree.command(name="kill", description="🔒 Kill specific types of entities in the Minecraft world.")
-@app_commands.describe(target="What to kill (items or mobs).")
+@bot.tree.command(name="kill", description="Kill specific types of entities in the Minecraft world.")
+@app_commands.describe(target="What to kill (items, vanilla_animals, vanilla_monsters, vanilla_villagers).")
 @app_commands.choices(target=[
     discord.app_commands.Choice(name="items", value="items"),
-    discord.app_commands.Choice(name="mobs", value="mobs"),
+    discord.app_commands.Choice(name="vanilla_animals", value="vanilla_animals"),
+    discord.app_commands.Choice(name="vanilla_monsters", value="vanilla_monsters"),
+    discord.app_commands.Choice(name="vanilla_villagers", value="vanilla_villagers"),
 ])
 async def slash_kill(interaction: discord.Interaction, target: str):
     """
     Kills specific types of entities in the Minecraft world based on the selected target.
     - items: Kills all dropped items.
-    - mobs: Kills all creatures except villagers and traders.
+    - vanilla_animals: Kills all passive vanilla animals and snowmen.
+    - vanilla_monsters: Kills all hostile mobs.
+    - vanilla_villagers: Kills villagers, wandering traders, and golems.
     """
     await interaction.response.defer(ephemeral=False, thinking=True)
 
@@ -365,25 +371,62 @@ async def slash_kill(interaction: discord.Interaction, target: str):
         return
 
     try:
+        response_lines = []
         if target == "items":
-            command = "kill @e[type=item]"
-            response = mcr_connection.command(command)
-            await interaction.followup.send(
-                content=f"`{response.strip()}`\nAll dropped items have been cleared from the world.",
-                ephemeral=False
-            )
-        elif target == "mobs":
-            command = "kill @e[type=!player,type=!villager,type=!wandering_trader]"
-            response = mcr_connection.command(command)
-            await interaction.followup.send(
-                content=f"`{response.strip()}`\nAll creatures (except villagers and traders) have been killed.",
-                ephemeral=False
-            )
+            response = mcr_connection.command("kill @e[type=minecraft:item]")
+            response_lines.append(f"`{response.strip()}` - Cleared all dropped items.")
+
+        elif target == "vanilla_animals":
+            animal_types = [
+                "minecraft:cow", "minecraft:sheep", "minecraft:chicken", "minecraft:pig",
+                "minecraft:horse", "minecraft:donkey", "minecraft:llama", "minecraft:mooshroom",
+                "minecraft:rabbit", "minecraft:cat", "minecraft:wolf", "minecraft:parrot",
+                "minecraft:fox", "minecraft:frog", "minecraft:turtle", "minecraft:snow_golem"
+            ]
+            for entity in animal_types:
+                response = mcr_connection.command(f"kill @e[type={entity}]")
+                if not response.startswith("No entity was found"):
+                    response_lines.append(f"{response.strip()} - Cleared all {entity.split(':')[1]}s.")
+
+        elif target == "vanilla_monsters":
+            monster_types = [
+                "minecraft:zombie", "minecraft:skeleton", "minecraft:creeper", "minecraft:spider",
+                "minecraft:enderman", "minecraft:witch", "minecraft:slime", "minecraft:ghast",
+                "minecraft:blaze", "minecraft:phantom", "minecraft:silverfish", "minecraft:drowned",
+                "minecraft:ravager", "minecraft:vindicator", "minecraft:illusioner", "minecraft:evoker",
+                "minecraft:husk", "minecraft:warden", "minecraft:zombified_piglin", "minecraft:shulker",
+                "minecraft:magma_cube", "minecraft:hoglin", "minecraft:stray", "minecraft:pillager",
+                "minecraft:guardian", "minecraft:elder_guardian", "minecraft:piglin", "minecraft:piglin_brute"
+            ]
+            for entity in monster_types:
+                response = mcr_connection.command(f"kill @e[type={entity}]")
+                if not response.startswith("No entity was found"):
+                    response_lines.append(f"{response.strip()} - Cleared all {entity.split(':')[1]}s.")
+
+        elif target == "vanilla_villagers":
+            villager_types = [
+                "minecraft:villager", "minecraft:wandering_trader",
+                "minecraft:iron_golem", "minecraft:snow_golem"
+            ]
+            for entity in villager_types:
+                response = mcr_connection.command(f"kill @e[type={entity}]")
+                if not response.startswith("No entity was found"):
+                    response_lines.append(f"{response.strip()} - Cleared all {entity.split(':')[1]}s.")
+
         else:
-            await interaction.followup.send("Invalid target. Please choose 'items' or 'mobs'.", ephemeral=True)
+            await interaction.followup.send("Invalid target. Please choose a valid option.", ephemeral=True)
+            return
+
+        # Combine all responses into a single message
+        final_response = "\n".join(response_lines) if response_lines else "No entities were found to kill."
+        await interaction.followup.send(final_response, ephemeral=False)
+
     except Exception as e:
         close_rcon_connection()
         await interaction.followup.send(f"Failed to execute kill command: {e}", ephemeral=True)
+
+
+
 
 
 
@@ -658,6 +701,10 @@ async def slash_players(interaction: discord.Interaction):
         "```"
     )
 
+    # Update / generate graph PNG
+    update_csv_player_count()
+    generate_player_count_graph()
+
     # Final response
     reply = f"{top_text}\n{code_block_today}{code_block_online}"
 
@@ -722,6 +769,13 @@ async def player_count_logger_task():
     while True:
         await asyncio.sleep(STAT_CSV_INTERVAL)  # 15 minutes in seconds
 
+        # Store how many players are currently online in the csv file
+        update_csv_player_count()
+
+        # After writing the row, generate a fresh graph
+        generate_player_count_graph()
+
+def update_csv_player_count():
         # Attempt to get the latest player count from your global or via RCON
         # (Here we assume you already update 'player_count' in update_server_status,
         #  so we just read that global variable.)
@@ -741,9 +795,6 @@ async def player_count_logger_task():
 
         # Write (or append) to the CSV
         write_player_count_csv(row)
-
-        # After writing the row, generate a fresh graph
-        generate_player_count_graph()
 
 def write_player_count_csv(row):
     """
@@ -769,6 +820,8 @@ def generate_player_count_graph():
     Reads the CSV (Timestamp, PlayerCount), groups by day to calculate daily max,
     and plots a column chart (bar chart) saved to PLAYER_COUNT_PNG with a dark theme.
     """
+    import datetime
+
     daily_counts = {}
 
     # 1) Read the CSV data
@@ -796,23 +849,34 @@ def generate_player_count_graph():
             else:
                 daily_counts[date_str] = max(daily_counts[date_str], count)
 
+    # Ensure today's date is included in the plot
+    today = datetime.datetime.now().strftime("%Y-%m-%d")
+    if today not in daily_counts:
+        daily_counts[today] = 0  # Assume 0 players for today if no data exists
+
     if not daily_counts:
         print("No data in CSV to plot.")
         return
 
     # 2) Prepare data for plotting
-    dates = list(daily_counts.keys())
-    max_counts = list(daily_counts.values())
+    dates = sorted(daily_counts.keys())  # Ensure dates are sorted
+    max_counts = [daily_counts[date] for date in dates]
+
+    # Format the dates into the desired format: "short_weekday DD.MM"
+    formatted_dates = [
+        datetime.datetime.strptime(date, "%Y-%m-%d").strftime("%d.%m %a")
+        for date in dates
+    ]
 
     # 3) Use a dark style for Discord
     plt.style.use('dark_background')
 
-    plt.figure(figsize=(8, 4))
-    plt.bar(dates, max_counts, color="#00b0f4", label="Daily Max Players")
+    plt.figure(figsize=(10, 4))
+    plt.bar(formatted_dates, max_counts, color="#00b0f4", label="Daily Max Players", zorder=3)
 
     # 4) Set the title, labels, and color them white
     plt.title("Daily Max Player Count", color="white")
-    plt.xlabel("Date", color="white")
+    plt.xlabel(f"Date ({datetime.datetime.now().year})", color="white")
     plt.ylabel("Players Online", color="white")
 
     # Rotate x-ticks for readability
@@ -822,6 +886,20 @@ def generate_player_count_graph():
     ax = plt.gca()
     ax.yaxis.set_major_locator(mticker.MaxNLocator(integer=True))
     plt.yticks(color="white")
+
+    # Offset the x-tick labels to align better with the ticks
+    for label in ax.get_xticklabels():
+        label.set_ha('right')  # Horizontal alignment (use 'left' or 'center')
+        label.set_position((0.09, 0))  # Adjust x and y offset 
+    
+    # Change the color of Sunday labels to red
+    for label, date in zip(ax.get_xticklabels(), dates):
+        if datetime.datetime.strptime(date, "%Y-%m-%d").weekday() == 6:  # 6 is Sunday
+            label.set_color("salmon")
+    # Change the color of Sunday bars to a slightly darker blue
+    for bar, date in zip(ax.patches, dates):
+        if datetime.datetime.strptime(date, "%Y-%m-%d").weekday() == 6:  # 6 is Sunday
+            bar.set_color("#005f99")  # Slightly darker blue
 
     # Add a grid (light gray for contrast)
     plt.grid(True, color="gray", alpha=0.3)
@@ -833,6 +911,8 @@ def generate_player_count_graph():
     plt.savefig(PLAYER_COUNT_PNG)
     plt.close()
     print(f"Saved dark-themed bar chart to {PLAYER_COUNT_PNG}.")
+
+
 
 
 
