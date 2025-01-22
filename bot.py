@@ -301,6 +301,59 @@ async def background_chat_update_task(channel_id: int):
 # Slash Commands
 # ──────────────────────────
 
+
+
+@bot.tree.command(name="chat", description="Show a single chat window for the last 10 lines.")
+async def slash_chat(interaction: discord.Interaction):
+    """
+    Creates (or recreates) one chat window in this channel (DM or text).
+    Keeps refreshing for 5 minutes.
+    """
+    # Acknowledge command
+    await interaction.response.defer(ephemeral=False, thinking=True)
+    # Post/refresh
+    await post_or_refresh_chat_window(interaction.channel)
+    # Let user know
+    await interaction.followup.send("Chat window created or refreshed for this channel.", ephemeral=False)
+
+@bot.tree.command(name="say", description="Send a chat message to the server from Discord.")
+@app_commands.describe(message="The message to send")
+async def slash_say(interaction: discord.Interaction, message: str):
+    """
+    Send /say to the server with a color-coded prefix,
+    then move the chat window to the bottom if it exists in this channel.
+    """
+    ensure_rcon_connection()
+    if mcr_connection is None:
+        await interaction.response.send_message("Could not connect to RCON. Try again later.", ephemeral=True)
+        return
+
+    try:
+        # Format text for Minecraft
+        say_string = f"§7§o{interaction.user.name}: {message}§r"
+        mcr_connection.command(f"say {say_string}")
+        await interaction.response.send_message(
+            f"Sent to server chat:\n`{interaction.user.name}: {message}`",
+            ephemeral=False
+        )
+    except Exception as e:
+        close_rcon_connection()
+        await interaction.response.send_message(f"Failed to send message: {e}", ephemeral=True)
+        return
+
+    # "Move" the chat window if it exists in this channel
+    channel_id = interaction.channel.id
+    if channel_id in CHAT_WINDOWS:
+        # Extend the timer (reset 5-minute countdown)
+        CHAT_WINDOWS[channel_id]["expires_at"] = asyncio.get_event_loop().time() + CHAT_DURATION
+        # Delete and repost to put it at the bottom
+        await post_or_refresh_chat_window(interaction.channel)
+        print(f"Chat window moved to bottom after /say in channel {channel_id}.")
+
+
+
+
+
 @bot.tree.command(name="weather", description="Set the weather in the Minecraft world.")
 @app_commands.describe(
     weather_type="Choose the type of weather to set.",
