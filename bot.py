@@ -40,7 +40,7 @@ SERVICE_NAME = "phoenix.service"  # Parameterize your MC service name here
 
 BACKUP_PATH = "/var/mcbackup/"
 DISK_PATHS = ["/dev/sda2", "/dev/sdb"]
-LATEST_LOG_LINES = 4
+LATEST_LOG_LINES = 6
 UPDATE_INTERVAL = 3
 
 # How often to refresh the chat window in seconds
@@ -698,17 +698,9 @@ async def slash_status(interaction: discord.Interaction):
         memory_usage = subprocess.check_output(['free', '-h']).decode()
         latest_logs = subprocess.check_output(['tail', '-n', str(LATEST_LOG_LINES), LOG_FILE_PATH]).decode()
 
-        # Players who joined today
-        players_today_cmd = (
-            f"(zcat {LOGS_DIR}/$(date +'%Y-%m'-%d)*.log.gz && cat {os.path.join(LOGS_DIR, 'latest.log')}) "
-            f"| grep joined | awk '{{print $6}}' | sort -u"
-        )
-        players_today = subprocess.check_output([players_today_cmd], shell=True).decode()
-        players_today_count = players_today.count("\n")
-
         # Crash reports
         crashes_cmd = (
-            f"head -n 4 {CRASH_REPORTS_DIR}/* | grep -E 'Time: ' | awk '{{print $2 \" \" $3}}' | tail -n 5"
+            f"head -n 4 {CRASH_REPORTS_DIR}/* | grep -E 'Time: ' | awk '{{print $2 \" \" $3}}' | tail -n 10"
         )
         crashes_times = subprocess.check_output([crashes_cmd], shell=True).decode() or "No crashes yet! <3"
 
@@ -729,18 +721,16 @@ async def slash_status(interaction: discord.Interaction):
         output = (
             f"MC Uptime: `{uptime}`\n"
             f"Player Count: `{player_count}`\n"
-            # Keep the trailing space before the code block for Discord formatting:
-            f"Players Today: `{players_today_count}` ```\n{players_today} ```"
-            f"Last 5 crashes: ```\n{crashes_times}\n```"
+            f"Recent crashes: ```\n{crashes_times}\n```"
             f"Disk space:```\n{disk_space}```"
             f"Backup size:```\n{backup_size}```"
             f"Machine uptime:```\n{machine_uptime}```"
             f"Memory usage:```\n{memory_usage}```"
             f"Latest logs:```\n{latest_logs}```"
-            f"Running behind count: `{lag_occurrences}`\n"
-            f"Average ms: `{average_ms:.0f}` ms\n"
-            f"Total missed seconds: `{total_missed_ticks * 50 / 1000}`\n"
-            f"Saving external chunk log count: `{ext_chunk_count}`"
+            f"'Running behind' log occurances: `{lag_occurrences}`\n"
+            f"Average ms of Running behind' logs: `{average_ms:.0f}` ms\n"
+            f"Total missed seconds from Running behind' logs: `{total_missed_ticks * 50 / 1000}`\n"
+            f"'Saving external chunk' log occurances: `{ext_chunk_count}`"
         )
 
     except Exception as e:
@@ -884,19 +874,27 @@ async def slash_players(interaction: discord.Interaction):
 
 async def update_server_status():
     global player_count, ext_chunk_count
+    last_lag_timestamp = None  # Timestamp of the last detected lag from the log
+    last_lag_ms = None  # Last lag value in milliseconds
+    lag_display_duration = 300  # 5 minutes in seconds
+
+    lag_line_regex = re.compile(
+        r'^\[(?P<datetime>\d{1,2}[A-Za-z]{3}\d{4} \d{2}:\d{2}:\d{2}\.\d+)] .*?Running (?P<ms>\d+)ms or \d+ ticks behind'
+    )
+
     while True:
         try:
-            # 1) Try fetching the player count from RCON
+            # Try fetching the player count from RCON
             count = get_player_count_from_rcon()
 
-            # 2) If we fail to get a count (i.e., None), declare "Server is offline"
+            # If RCON fails to get a count, set status to offline
             if count is None:
                 status_message = "Server is offline"
             else:
-                # Otherwise, update global `player_count`
+                # Update global player count
                 player_count = count
 
-                # Check for external chunk saving
+                # Read the log file and check for external chunk saving or lag
                 with open(LOG_FILE_PATH, 'r') as log_file:
                     log_contents = log_file.read()
                 ext_chunk_count = len(re.findall(r'Saving oversized chunk', log_contents))
@@ -905,18 +903,48 @@ async def update_server_status():
                     status_message = f"External chunks! ({ext_chunk_count})"
                 else:
                     lines = log_contents.splitlines()
-                    latest_log = lines[-1] if lines else ""
-                    lag_ms_match = re.search(r'Running (\d+)ms or \d+ ticks behind', latest_log)
-                    if lag_ms_match:
-                        ms_value = int(lag_ms_match.group(1))
-                        status_message = f"{player_count} players online ({ms_value / 1000:.1f} sec behind)"
+                    latest_lag_line = None
+
+                    # Parse log lines for lag entries
+                    for line in reversed(lines):
+                        match = lag_line_regex.match(line)
+                        if match:
+                            latest_lag_line = match
+                            break
+
+                    if latest_lag_line:
+                        # Extract the log timestamp and lag value
+                        log_timestamp_str = latest_lag_line.group("datetime")
+                        log_timestamp = datetime.datetime.strptime(log_timestamp_str, "%d%b%Y %H:%M:%S.%f")
+                        lag_ms = int(latest_lag_line.group("ms"))
+
+                        # Update the lag status if the timestamp is newer
+                        if last_lag_timestamp is None or log_timestamp > last_lag_timestamp:
+                            last_lag_timestamp = log_timestamp
+                            last_lag_ms = lag_ms
+
+                        time_since_lag = (datetime.datetime.now() - last_lag_timestamp).total_seconds()
+                        if time_since_lag <= lag_display_duration:
+                            status_message = (
+                                f"{player_count} players online ({last_lag_ms / 1000:.1f} sec behind, "
+                                f"{int(lag_display_duration - time_since_lag)} seconds remaining)"
+                            )
+                        else:
+                            # Lag display duration expired
+                            last_lag_timestamp = None
+                            last_lag_ms = None
+                            status_message = f"{player_count} players online"
                     else:
+                        # No lag detected in the latest logs
+                        last_lag_timestamp = None
+                        last_lag_ms = None
                         status_message = f"{player_count} players online"
+
         except Exception as e:
             print(f"Error updating status: {e}")
             status_message = "Server is offline"
 
-        # 3) Finally, update bot’s presence with whatever status_message we settled on
+        # Update bot presence with the current status message
         await bot.change_presence(activity=discord.Game(status_message))
         await asyncio.sleep(UPDATE_INTERVAL)
 
