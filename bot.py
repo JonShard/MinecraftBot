@@ -1,5 +1,6 @@
 import os
 import re
+import sys
 import time
 import subprocess
 import asyncio
@@ -300,52 +301,88 @@ async def background_chat_update_task(channel_id: int):
 # Slash Commands
 # ──────────────────────────
 
-@bot.tree.command(name="chat", description="Show a single chat window for the last 10 lines.")
-async def slash_chat(interaction: discord.Interaction):
+@bot.tree.command(name="weather", description="Set the weather in the Minecraft world.")
+@app_commands.describe(
+    weather_type="Choose the type of weather to set.",
+    duration_minutes="Optional duration in minutes for the weather to last."
+)
+@app_commands.choices(weather_type=[
+    discord.app_commands.Choice(name="Clear", value="clear"),
+    discord.app_commands.Choice(name="Rain", value="rain"),
+    discord.app_commands.Choice(name="Thunder", value="thunder"),
+])
+async def slash_weather(interaction: discord.Interaction, weather_type: str, duration_minutes: int = None):
     """
-    Creates (or recreates) one chat window in this channel (DM or text).
-    Keeps refreshing for 5 minutes.
+    Sets the weather in the Minecraft world with input validation for duration_minutes and weather-specific emojis.
     """
-    # Acknowledge command
     await interaction.response.defer(ephemeral=False, thinking=True)
-    # Post/refresh
-    await post_or_refresh_chat_window(interaction.channel)
-    # Let user know
-    await interaction.followup.send("Chat window created or refreshed for this channel.", ephemeral=False)
 
-@bot.tree.command(name="say", description="Send a chat message to the server from Discord.")
-@app_commands.describe(message="The message to send")
-async def slash_say(interaction: discord.Interaction, message: str):
-    """
-    Send /say to the server with a color-coded prefix,
-    then move the chat window to the bottom if it exists in this channel.
-    """
     ensure_rcon_connection()
     if mcr_connection is None:
-        await interaction.response.send_message("Could not connect to RCON. Try again later.", ephemeral=True)
+        await interaction.followup.send("Could not connect to RCON. Try again later.", ephemeral=True)
         return
 
     try:
-        # Format text for Minecraft
-        say_string = f"§7§o{interaction.user.name}: {message}§r"
-        mcr_connection.command(f"say {say_string}")
-        await interaction.response.send_message(
-            f"Sent to server chat:\n`{interaction.user.name}: {message}`",
+        # Emojis for each weather type
+        weather_emojis = {
+            "clear": "☀️",
+            "rain": "🌧️",
+            "thunder": "⛈️"
+        }
+
+        if duration_minutes is not None:
+            # Clamp duration to a maximum safe value
+            MAX_DURATION = sys.maxsize // 60  # Convert max seconds to minutes
+            if duration_minutes < 0:
+                await interaction.followup.send("Duration cannot be negative. Please enter a valid value.", ephemeral=True)
+                return
+            elif duration_minutes > MAX_DURATION:
+                duration_minutes = MAX_DURATION
+
+            # Convert duration_minutes to seconds
+            duration_seconds = duration_minutes * 60
+            command = f"weather {weather_type} {duration_seconds}"
+        else:
+            command = f"weather {weather_type}"
+
+        # Execute the command
+        response = mcr_connection.command(command)
+
+        # Format the duration into human-readable units
+        if duration_minutes:
+            seconds = duration_minutes * 60
+            years, remainder = divmod(seconds, 60 * 60 * 24 * 365)
+            days, remainder = divmod(remainder, 60 * 60 * 24)
+            hours, remainder = divmod(remainder, 60 * 60)
+            minutes, _ = divmod(remainder, 60)
+
+            duration_parts = []
+            if years > 0:
+                duration_parts.append(f"{years:,} Years")
+            if days > 0:
+                duration_parts.append(f"{days} Days")
+            if hours > 0:
+                duration_parts.append(f"{hours} Hours")
+            if minutes > 0:
+                duration_parts.append(f"{minutes} Minutes")
+
+            duration_msg = " for " + ", ".join(duration_parts)
+        else:
+            duration_msg = ""
+
+        # Get emoji for the weather type
+        emoji = weather_emojis.get(weather_type, "")
+
+        # Notify the user
+        await interaction.followup.send(
+            content=f"`{response.strip()}`\n{emoji} Weather set to **{weather_type}**{duration_msg}.",
             ephemeral=False
         )
     except Exception as e:
         close_rcon_connection()
-        await interaction.response.send_message(f"Failed to send message: {e}", ephemeral=True)
-        return
+        await interaction.followup.send(f"Failed to set weather: {e}", ephemeral=True)
 
-    # "Move" the chat window if it exists in this channel
-    channel_id = interaction.channel.id
-    if channel_id in CHAT_WINDOWS:
-        # Extend the timer (reset 5-minute countdown)
-        CHAT_WINDOWS[channel_id]["expires_at"] = asyncio.get_event_loop().time() + CHAT_DURATION
-        # Delete and repost to put it at the bottom
-        await post_or_refresh_chat_window(interaction.channel)
-        print(f"Chat window moved to bottom after /say in channel {channel_id}.")
+
 
 
 @bot.tree.command(name="kill", description="🔒 Kill specific types of entities in the Minecraft world.")
