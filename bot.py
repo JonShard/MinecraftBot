@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import subprocess
 import asyncio
 import datetime
@@ -347,7 +348,7 @@ async def slash_say(interaction: discord.Interaction, message: str):
         print(f"Chat window moved to bottom after /say in channel {channel_id}.")
 
 
-@bot.tree.command(name="kill", description="Kill specific types of entities in the Minecraft world.")
+@bot.tree.command(name="kill", description="🔒 Kill specific types of entities in the Minecraft world.")
 @app_commands.describe(target="What to kill (items, vanilla_animals, vanilla_monsters, vanilla_villagers).")
 @app_commands.choices(target=[
     discord.app_commands.Choice(name="items", value="items"),
@@ -364,6 +365,11 @@ async def slash_kill(interaction: discord.Interaction, target: str):
     - vanilla_villagers: Kills villagers, wandering traders, and golems.
     """
     await interaction.response.defer(ephemeral=False, thinking=True)
+
+    # Authorization (whitelist)
+    if interaction.user.id not in ADMIN_USERS:
+        await interaction.response.send_message("Sorry, you are not authorized to use this command.", ephemeral=True)
+        return  
 
     ensure_rcon_connection()
     if mcr_connection is None:
@@ -493,6 +499,70 @@ async def slash_server(interaction: discord.Interaction, action: str):
             f"Error running **{action}** on `{SERVICE_NAME}`: {ex}",
             ephemeral=True
         )
+
+@bot.tree.command(name="reboot", description="🔒 Reboot the physical machine.")
+async def slash_reboot(interaction: discord.Interaction):
+    """
+    Reboots the server by running 'sudo reboot'. Admin-only command.
+    The bot logs out before executing the reboot to indicate downtime.
+    """
+    # Check if the user is an admin
+    if interaction.user.id not in ADMIN_USERS:
+        await interaction.response.send_message(
+            "Sorry, you are not authorized to use this command.",
+            ephemeral=True
+        )
+        return
+
+    await interaction.response.defer(ephemeral=False, thinking=True)
+
+    try:
+        # Notify about the reboot
+        await interaction.followup.send(
+            "Rebooting the server in soon, this may take a while. 🖥️",
+            ephemeral=False
+        )
+
+        # Stop the Minecraft service
+        try:
+            subprocess.check_output(
+                ["sudo", "systemctl", "stop", SERVICE_NAME],
+                stderr=subprocess.STDOUT
+            )
+        except subprocess.CalledProcessError as e:
+            error_message = e.output.decode(errors="ignore") if e.output else "No error output"
+            await interaction.followup.send(
+                f"Failed to stop the Minecraft service:\n```\n{error_message}\n```",
+                ephemeral=True
+            )
+            return
+
+        # Wait for 30 seconds
+        time.sleep(30)
+
+        # Logout the bot
+        await bot.close()
+
+        # Execute the reboot command
+        subprocess.check_output(["sudo", "reboot"], stderr=subprocess.STDOUT)
+
+    except subprocess.CalledProcessError as e:
+        error_message = e.output.decode(errors="ignore") if e.output else "No error output"
+        try:
+            await interaction.followup.send(
+                f"Failed to reboot the server:\n```\n{error_message}\n```",
+                ephemeral=True
+            )
+        except discord.errors.ClientException:
+            print(f"Failed to send error message: {error_message}")
+    except Exception as e:
+        try:
+            await interaction.followup.send(
+                f"An unexpected error occurred while attempting to reboot the server: {e}",
+                ephemeral=True
+            )
+        except discord.errors.ClientException:
+            print(f"Failed to send unexpected error message: {e}")
 
 
 @bot.tree.command(name="command", description="🔒Execute an RCON command on the server")
