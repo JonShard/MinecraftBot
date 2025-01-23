@@ -777,13 +777,17 @@ async def slash_status(interaction: discord.Interaction):
 
 
         # Extract machine uptime
-        machine_uptime_cmd = subprocess.check_output(['uptime', '-p']).decode().strip()  # Format: "up 15 hours, 11 minutes"
-        machine_uptime_match = re.search(r'up (\d+ hours)?,?\s?(\d+ minutes)?', machine_uptime_cmd)
-        hours = machine_uptime_match.group(1) if machine_uptime_match and machine_uptime_match.group(1) else "0 Hours"
-        minutes = machine_uptime_match.group(2) if machine_uptime_match and machine_uptime_match.group(2) else "0 Minutes"
+        machine_uptime_cmd = subprocess.check_output(['uptime', '-p']).decode().strip()  # Example: "up 1 day, 11 hours, 59 minutes"
+        machine_uptime_match = re.search(r'up (\d+ days?)?,?\s?(\d+ hours?)?,?\s?(\d+ minutes?)?', machine_uptime_cmd)
 
-        # Format uptime as `X Hours Y Minutes`
-        formatted_uptime = f"{hours.strip()} {minutes.strip()}"
+        # Initialize parts to empty strings
+        days = machine_uptime_match.group(1) if machine_uptime_match and machine_uptime_match.group(1) else ""
+        hours = machine_uptime_match.group(2) if machine_uptime_match and machine_uptime_match.group(2) else ""
+        minutes = machine_uptime_match.group(3) if machine_uptime_match and machine_uptime_match.group(3) else ""
+
+        # Combine parts into a human-readable format
+        formatted_uptime = " ".join(filter(None, [days.strip(), hours.strip(), minutes.strip()])).replace("  ", " ")
+
 
 
         # Extract total backup size
