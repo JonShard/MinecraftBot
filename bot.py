@@ -354,18 +354,31 @@ async def slash_modpack(interaction: discord.Interaction):
     if server_port != "25565" and public_ip != "Unable to fetch public IP":
         public_ip = f"{public_ip}:{server_port}"
 
-    # Define the modpack link
-    modpack_link = MODPACK_URL
-
-    # Construct the response message
-    message = (
-        f"**Modpack Download:** [The Phoenix Den Pack]({modpack_link})\n"
-        f"**Server Address:** `{public_ip}`"
+  # Create the guide
+    guide = (
+        "## 🛠️ Setup Guide 🛠️\n"
+        "1. **Install the CurseForge App**:\n"
+        "   - Download and install the CurseForge app from the official website:  \n"
+        "   https://download.curseforge.com\n"
+        "2. **Download the modpack**:\n"
+        "   - Open the CurseForge app and click on the **Minecraft** tab.\n"
+        "   - Search for the modpack and click **Install**.\n"
+        "   - Once installed, click **Play** to start the modpack.\n"
+        "Enjoy your game! 🎮🔥"
     )
 
-    # Send the message
-    await interaction.response.send_message(message, ephemeral=False)
-
+    await interaction.response.send_message(
+        content=guide,
+        ephemeral=False, 
+        suppress_embeds=True
+    )
+    # Send the modpack URL and server address as separate messages for better visibility
+    await interaction.channel.send(
+        content=(
+            f"**Server Address:** `{public_ip}`\n"
+            f"**Modpack:** [The Phoenix Den Pack]({MODPACK_URL})"
+        )
+    )
 
 
 
