@@ -21,21 +21,26 @@ from mcrcon import MCRcon
 # ──────────────────────────
 # Configuration Variables
 # ──────────────────────────
-
-MODPACK_URL = "https://www.curseforge.com/minecraft/modpacks/the-phoenix-den-pack"
-
 BOT_TOKEN = "MTA4MTg1Nzc5OTc5NDk4NzA0OQ.GY1gHU.Zr8kWU4WXIN_Yx2JAjr3M3J2NBjVw8XkO4noC8"
 
 MC_SERVER_PATH = "/mnt/SSD120GB/phonix/PhoenixDenPack2025"
+SERVICE_NAME = "phoenix.service"  # Parameterize your MC service name here
 BACKUP_PATH = "/var/mcbackup/"
+MODPACK_URL = "https://www.curseforge.com/minecraft/modpacks/the-phoenix-den-pack"
 
 STAT_CSV_INTERVAL = 900
 LATEST_LOG_LINES = 8
-UPDATE_INTERVAL = 3
+PRESENCE_UPDATE_INTERVAL = 3
+CHAT_UPDATE_INTERVAL = 5 # How often to refresh the chat window in seconds
+CHAT_DURATION = 900 # How long the chat window remains active in seconds (15 minutes)
+CHAT_LINES = 10 # How many lines of chat in code block
 
-SERVICE_NAME = "phoenix.service"  # Parameterize your MC service name here
+# For the commands that cause changes:
+ADMIN_USERS = [257785837813497856, # TwistedAro
+               209382762971398144, # Algodoogle
+               300930955579752448, # EarthFishy
+               191561233755799554] # JonShard
 
-DISK_PATHS = ["/dev/sda2", "/dev/sdb"]
 STAT_CSV_PATH = "stats.csv"
 PLAYER_COUNT_PNG = "stat_players.png"
 
@@ -44,19 +49,6 @@ LOGS_DIR = os.path.join(MC_SERVER_PATH, "logs")
 CRASH_REPORTS_DIR = os.path.join(MC_SERVER_PATH, "crash-reports")
 LOG_FILE_PATH = os.path.join(LOGS_DIR, "latest.log")
 
-
-# How often to refresh the chat window in seconds
-CHAT_UPDATE_INTERVAL = 5
-# How long the chat window remains active in seconds (15 minutes)
-CHAT_DURATION = 900
-# How many lines of chat in code block
-CHAT_LINES = 10 
-
-# For the commands that cause changes:
-ADMIN_USERS = [257785837813497856, # TwistedAro
-               209382762971398144, # Algodoogle
-               300930955579752448, # EarthFishy
-               191561233755799554] # JonShard
 
 # ──────────────────────────
 # Global RCON + Discord Setup
@@ -1016,7 +1008,7 @@ async def slash_players(interaction: discord.Interaction):
 # Background Task: Status Presence
 # ──────────────────────────
 
-async def update_server_status():
+async def update_bot_presence():
     global player_count, ext_chunk_count
     last_lag_timestamp = None  # Timestamp of the last detected lag from the log
     last_lag_ms = None  # Last lag value in milliseconds
@@ -1090,7 +1082,7 @@ async def update_server_status():
 
         # Update bot presence with the current status message
         await bot.change_presence(activity=discord.Game(status_message))
-        await asyncio.sleep(UPDATE_INTERVAL)
+        await asyncio.sleep(PRESENCE_UPDATE_INTERVAL)
 
 
 async def player_count_logger_task():
@@ -1262,7 +1254,7 @@ async def on_ready():
         print(f"Error syncing slash commands: {e}")
 
     ensure_rcon_connection()
-    bot.loop.create_task(update_server_status())
+    bot.loop.create_task(update_bot_presence())
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
 
     # Start the new CSV logger in the background
