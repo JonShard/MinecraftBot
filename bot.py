@@ -32,11 +32,12 @@ MODPACK_URL = "https://www.curseforge.com/minecraft/modpacks/the-phoenix-den-pac
 
 # Optional Configuration:
 STAT_CSV_INTERVAL = 900 # How often in seconds to check for players to store in CSV for player graph
-LATEST_LOG_LINES = 8    # How many lines of log to provide in /status command.
+LATEST_LOG_LINES = 10    # How many lines of log to provide in /status command.
 PRESENCE_UPDATE_INTERVAL = 3 # How often in seconds to update the bot's presence "Playing X players online..."
 CHAT_UPDATE_INTERVAL = 5 # How often to refresh the chat window in seconds
 CHAT_DURATION = 900 # How long the chat window remains active in seconds (15 minutes)
 CHAT_LINES = 10 # How many lines of chat in code block
+DISCORD_CHAR_LIMIT = 2000
 
 # For the commands that cause changes:
 ADMIN_USERS = [257785837813497856, # TwistedAro
@@ -874,6 +875,16 @@ async def slash_status(interaction: discord.Interaction):
             f"Latest logs:```\n{latest_logs}```"
         )
 
+        # Trim output if it exceeds 2000 characters
+        if len(output) > DISCORD_CHAR_LIMIT:
+            trimmed_length = len(output) - DISCORD_CHAR_LIMIT
+            # Ensure the message ends properly with the closing backticks for the code block
+            truncation_message = "... (truncated)\n```"
+            output = output[:DISCORD_CHAR_LIMIT - len(truncation_message)] + truncation_message
+            print(f"Trimmed {trimmed_length} characters from the status message.")
+        # If the message doesn't exceed the limit but still needs to end with a code block
+        elif not output.endswith("```"):
+            output += "```"
     except Exception as e:
         output = f"An error occurred: {str(e)}"
 
