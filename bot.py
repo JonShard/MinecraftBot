@@ -6,7 +6,7 @@ import subprocess
 import asyncio
 import datetime
 import csv
-
+import requests
 
 import matplotlib
 matplotlib.use('Agg')  # Use a non-GUI backend
@@ -22,26 +22,28 @@ from mcrcon import MCRcon
 # Configuration Variables
 # ──────────────────────────
 
+MODPACK_URL = "https://www.curseforge.com/minecraft/modpacks/the-phoenix-den-pack"
+
 BOT_TOKEN = "MTA4MTg1Nzc5OTc5NDk4NzA0OQ.GY1gHU.Zr8kWU4WXIN_Yx2JAjr3M3J2NBjVw8XkO4noC8"
-SERVER_IP = "192.168.50.213"
-RCON_PORT = 25575
-RCON_PASSWORD = "srep"  # RCON password
 
 MC_SERVER_PATH = "/mnt/SSD120GB/phonix/PhoenixDenPack2025"
+BACKUP_PATH = "/var/mcbackup/"
+
+STAT_CSV_INTERVAL = 900
+LATEST_LOG_LINES = 8
+UPDATE_INTERVAL = 3
+
+SERVICE_NAME = "phoenix.service"  # Parameterize your MC service name here
+
+DISK_PATHS = ["/dev/sda2", "/dev/sdb"]
+STAT_CSV_PATH = "stats.csv"
+PLAYER_COUNT_PNG = "stat_players.png"
+
+# Derived paths
 LOGS_DIR = os.path.join(MC_SERVER_PATH, "logs")
 CRASH_REPORTS_DIR = os.path.join(MC_SERVER_PATH, "crash-reports")
 LOG_FILE_PATH = os.path.join(LOGS_DIR, "latest.log")
 
-STAT_CSV_PATH = "stats.csv"
-STAT_CSV_INTERVAL = 900
-PLAYER_COUNT_PNG = "stat_players.png"
-
-SERVICE_NAME = "phoenix.service"  # Parameterize your MC service name here
-
-BACKUP_PATH = "/var/mcbackup/"
-DISK_PATHS = ["/dev/sda2", "/dev/sdb"]
-LATEST_LOG_LINES = 8
-UPDATE_INTERVAL = 3
 
 # How often to refresh the chat window in seconds
 CHAT_UPDATE_INTERVAL = 5
@@ -87,13 +89,38 @@ CHAT_WINDOWS = {}
 def ensure_rcon_connection():
     """Ensure we have a persistent RCON connection."""
     global mcr_connection
+
+    # Check if already connected
     if mcr_connection is not None:
         return
+
+    # Default RCON port and password
+    rcon_port = 25575  # Default RCON port
+    rcon_password = None
+
+    # Path to server.properties
+    server_properties_path = os.path.join(MC_SERVER_PATH, "server.properties")
+
     try:
-        conn = MCRcon(SERVER_IP, RCON_PASSWORD, port=RCON_PORT)
+        # Parse RCON port and password from server.properties
+        with open(server_properties_path, "r") as file:
+            for line in file:
+                if line.startswith("rcon.port="):
+                    rcon_port = int(line.split("=")[-1].strip())
+                elif line.startswith("rcon.password="):
+                    rcon_password = line.split("=")[-1].strip()
+
+        if not rcon_password:
+            raise ValueError("RCON password not found in server.properties.")
+
+        # Establish the RCON connection
+        conn = MCRcon("localhost", rcon_password, port=rcon_port)
         conn.connect()
         mcr_connection = conn
         print("RCON: Connected successfully.")
+    except FileNotFoundError:
+        print(f"RCON: server.properties not found at {server_properties_path}.")
+        mcr_connection = None
     except Exception as e:
         print(f"RCON: Failed to connect: {e}")
         mcr_connection = None
@@ -300,6 +327,49 @@ async def background_chat_update_task(channel_id: int):
 # ──────────────────────────
 # Slash Commands
 # ──────────────────────────
+
+
+@bot.tree.command(name="modpack", description="Provides the modpack download link and server's public IP.")
+async def slash_modpack(interaction: discord.Interaction):
+    """
+    Sends a message with the modpack download link, the server's public IP, and port.
+    """
+    try:
+        # Fetch the public IP dynamically
+        response = requests.get("https://api.ipify.org?format=text")
+        response.raise_for_status()
+        public_ip = response.text.strip()
+    except Exception as e:
+        public_ip = "Unable to fetch public IP"
+
+    # Parse the server port from server.properties
+    server_properties_path = os.path.join(MC_SERVER_PATH, "server.properties")
+    server_port = "25565"  # Default port
+    try:
+        with open(server_properties_path, "r") as file:
+            for line in file:
+                if line.startswith("server-port="):
+                    server_port = line.split("=")[-1].strip()
+                    break
+    except FileNotFoundError:
+        server_port = "Unknown"
+
+    # Append the port to the IP if it's not the default
+    if server_port != "25565" and public_ip != "Unable to fetch public IP":
+        public_ip = f"{public_ip}:{server_port}"
+
+    # Define the modpack link
+    modpack_link = MODPACK_URL
+
+    # Construct the response message
+    message = (
+        f"**Modpack Download:** [The Phoenix Den Pack]({modpack_link})\n"
+        f"**Server Address:** `{public_ip}`"
+    )
+
+    # Send the message
+    await interaction.response.send_message(message, ephemeral=False)
+
 
 
 
