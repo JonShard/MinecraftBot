@@ -40,7 +40,7 @@ SERVICE_NAME = "phoenix.service"  # Parameterize your MC service name here
 
 BACKUP_PATH = "/var/mcbackup/"
 DISK_PATHS = ["/dev/sda2", "/dev/sdb"]
-LATEST_LOG_LINES = 6
+LATEST_LOG_LINES = 8
 UPDATE_INTERVAL = 3
 
 # How often to refresh the chat window in seconds
@@ -690,19 +690,92 @@ async def slash_status(interaction: discord.Interaction):
         # Gather system/server information
         ps_output = subprocess.check_output(['ps', '-eo', 'pid,comm,etime']).decode()
         java_process_line = [line for line in ps_output.split('\n') if 'java' in line][0]
-        uptime = java_process_line.split()[-1]
 
-        disk_space = subprocess.check_output(['df'] + DISK_PATHS + ['-h']).decode()
-        backup_size = subprocess.check_output(['du', BACKUP_PATH, '-sch']).decode()
-        machine_uptime = subprocess.check_output(['uptime']).decode()
-        memory_usage = subprocess.check_output(['free', '-h']).decode()
-        latest_logs = subprocess.check_output(['tail', '-n', str(LATEST_LOG_LINES), LOG_FILE_PATH]).decode()
+        # Extract the Minecraft server uptime from the `ps` output
+        try:
+            java_process_line = next((line for line in ps_output.splitlines() if 'java' in line), None)
+
+            if java_process_line:
+                raw_uptime = java_process_line.split()[-1]  # Get the raw uptime, e.g., "03:29:42"
+                uptime_parts = list(map(int, raw_uptime.split(":")))  # Split into hours, minutes, seconds
+
+                # Ensure the format aligns with "HH Hours MM Minutes SS Seconds"
+                formatted_mc_uptime = (
+                    f"{uptime_parts[0]} hours " if len(uptime_parts) == 3 and uptime_parts[0] > 0 else ""
+                ) + (
+                    f"{uptime_parts[-2]} minutes " if len(uptime_parts) >= 2 else ""
+                )
+            else:
+                formatted_mc_uptime = "Unknown"
+
+        except Exception as e:
+            print(f"Error parsing Minecraft server uptime: {e}")
+            formatted_mc_uptime = "Unknown"
+
+
+
+        # Extract machine uptime
+        machine_uptime_cmd = subprocess.check_output(['uptime', '-p']).decode().strip()  # Format: "up 15 hours, 11 minutes"
+        machine_uptime_match = re.search(r'up (\d+ hours)?,?\s?(\d+ minutes)?', machine_uptime_cmd)
+        hours = machine_uptime_match.group(1) if machine_uptime_match and machine_uptime_match.group(1) else "0 Hours"
+        minutes = machine_uptime_match.group(2) if machine_uptime_match and machine_uptime_match.group(2) else "0 Minutes"
+
+        # Format uptime as `X Hours Y Minutes`
+        formatted_uptime = f"{hours.strip()} {minutes.strip()}"
+
+
+        # Extract total backup size
+        backup_size_cmd = subprocess.check_output(['du', BACKUP_PATH, '-sch']).decode()
+        backup_size_match = re.search(r'(\d+G)\s+total', backup_size_cmd)
+        backup_size = backup_size_match.group(1) if backup_size_match else "Unknown"
+
+        # Extract available disk space for the backup path
+        disk_space_cmd = subprocess.check_output(['df', BACKUP_PATH, '-h']).decode()
+        disk_space_match = re.search(r'(\d+G)\s+\d+G\s+(\d+G)\s+\d+%', disk_space_cmd)
+        available_space = disk_space_match.group(2) if disk_space_match else "Unknown"
+
+        # Get total memory from `lsmem` using a more robust method
+        try:
+            lsmem_output = subprocess.check_output(['lsmem'], stderr=subprocess.DEVNULL).decode()
+
+            # Extract the total online memory line
+            total_memory_match = re.search(r'Total online memory:\s+([\d,]+)G', lsmem_output)
+            total_memory = f"{total_memory_match.group(1).replace(',', '.')}GB" if total_memory_match else "Unknown"
+        except Exception as e:
+            print(f"Error fetching total memory: {e}")
+            total_memory = "Unknown"
+
+        # Get memory details from `free`
+        free_output = subprocess.check_output(['free', '-h']).decode().splitlines()
+
+        # Locate the line with memory information
+        mem_line = next((line for line in free_output if line.startswith('Mem:')), None)
+
+        if mem_line:
+            # Split the memory line into parts, ensuring no assumption about the number of columns
+            mem_parts = mem_line.split()
+
+            # Extract relevant data based on known column positions
+            total_used = mem_parts[1]  # Total memory
+            used = mem_parts[2]        # Used memory
+            available = mem_parts[-1]  # Available memory (typically the last column)
+
+            # Remove the "i" suffix for readability
+            total_used = total_used.replace("Gi", "GB")
+            used = used.replace("Gi", "GB")
+            available = available.replace("Gi", "GB")
+        else:
+            total_used = "Unknown"
+            used = "Unknown"
+            available = "Unknown"
 
         # Crash reports
         crashes_cmd = (
             f"head -n 4 {CRASH_REPORTS_DIR}/* | grep -E 'Time: ' | awk '{{print $2 \" \" $3}}' | tail -n 10"
         )
         crashes_times = subprocess.check_output([crashes_cmd], shell=True).decode() or "No crashes yet! <3"
+
+        latest_logs = subprocess.check_output(['tail', '-n', str(LATEST_LOG_LINES), LOG_FILE_PATH]).decode()
 
         # Detect lag occurrences
         with open(LOG_FILE_PATH, 'r') as log_file:
@@ -719,18 +792,17 @@ async def slash_status(interaction: discord.Interaction):
         )
 
         output = (
-            f"MC Uptime: `{uptime}`\n"
             f"Player Count: `{player_count}`\n"
+            f"Minecraft uptime: `{formatted_mc_uptime.strip()}`\n"
+            f"Machine uptime: `{formatted_uptime}`\n"
+            f"Total backup size: `{backup_size} ({available_space} available)`\n"
+            f"Memory usage: `{used} ({available} available, total {total_memory})`\n"
             f"Recent crashes: ```\n{crashes_times}\n```"
-            f"Disk space:```\n{disk_space}```"
-            f"Backup size:```\n{backup_size}```"
-            f"Machine uptime:```\n{machine_uptime}```"
-            f"Memory usage:```\n{memory_usage}```"
+            f"*'Running behind'* log occurrences: `{lag_occurrences}`\n"
+            f"Average ms of *'Running behind'* logs: `{average_ms:.0f}` ms\n"
+            f"Total missed seconds from *'Running behind'* logs: `{total_missed_ticks * 50 / 1000}`\n"
+            f"*'Saving external chunk'* log occurrences: `{ext_chunk_count}`\n"
             f"Latest logs:```\n{latest_logs}```"
-            f"'Running behind' log occurances: `{lag_occurrences}`\n"
-            f"Average ms of Running behind' logs: `{average_ms:.0f}` ms\n"
-            f"Total missed seconds from Running behind' logs: `{total_missed_ticks * 50 / 1000}`\n"
-            f"'Saving external chunk' log occurances: `{ext_chunk_count}`"
         )
 
     except Exception as e:
@@ -738,6 +810,8 @@ async def slash_status(interaction: discord.Interaction):
 
     # Respond to the slash command so everyone can see
     await interaction.response.send_message(output, ephemeral=False)
+
+
 
 
 @bot.tree.command(name="players", description="Show who is online, who has joined today and how many joined yesterday.")
