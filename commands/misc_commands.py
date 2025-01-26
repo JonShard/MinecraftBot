@@ -3,19 +3,14 @@ import os
 import requests
 
 import discord
-from discord.ext import commands
 from discord import app_commands
+from discord.ext import commands
 
 from config import *
 import utility.helper_functions as helpers
 
-
-class MiscCommands(commands.Cog):
-    def __init__(bot):
-        bot = bot
-
-
-    @app_commands.command(name="chat", description="Show a single chat window for the last 10 lines.")
+def register_commands(bot):
+    @bot.tree.command(name="chat", description="Show a single chat window for the last 10 lines.")
     async def slash_chat(interaction: discord.Interaction):
         """
         Creates (or recreates) one chat window in this channel (DM or text).
@@ -30,7 +25,7 @@ class MiscCommands(commands.Cog):
 
 
 
-    @app_commands.command(name="modpack", description="Provides the modpack download link and server's public IP.")
+    @bot.tree.command(name="modpack", description="Provides the modpack download link and server's public IP.")
     async def slash_modpack(interaction: discord.Interaction):
         """
         Sends a message with the modpack download link, the server's public IP, and port.
@@ -84,13 +79,3 @@ class MiscCommands(commands.Cog):
                 f"**Modpack:** {MODPACK_URL}"
             )
         )
-
-    async def cog_load(self):
-        guild = discord.Object(id=279244769807564800)
-        bot.tree.add_command(slash_chat, guild=guild)
-        bot.tree.add_command(slash_modpack, guild=guild)
-        print("Added Misc commands")
-
-async def setup(bot):
-    await bot.add_cog(MiscCommands(bot))
-    print("Loaded cog MiscCommands")

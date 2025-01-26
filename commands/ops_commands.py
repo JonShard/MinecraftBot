@@ -5,21 +5,16 @@ import subprocess
 
 import discord
 
-from discord.ext import commands
 from discord import app_commands
 
 from config import *
 
-class OpsCommands(commands.Cog):
-    def __init__(bot):
-        bot = bot
+# ──────────────────────────
+# Slash Commands
+# ──────────────────────────
+def register_commands(bot):
 
-
-    # ──────────────────────────
-    # Slash Commands
-    # ──────────────────────────
-
-    @app_commands.command(name="status", description="Show the Minecraft server status")
+    @bot.tree.command(name="status", description="Show the Minecraft server status")
     async def slash_status(interaction: discord.Interaction):
         """
         Slash command that responds with the server status, logs, memory, etc.
@@ -169,7 +164,7 @@ class OpsCommands(commands.Cog):
 
 
 
-    @app_commands.command(name="server", description="🔒 Control or check the MC server instance (stop, start, restart, status).")
+    @bot.tree.command(name="server", description="🔒 Control or check the MC server instance (stop, start, restart, status).")
     @app_commands.describe(action="Choose an action for the server service.")
     @app_commands.choices(action=[
         discord.app_commands.Choice(name="stop", value="stop"),
@@ -236,7 +231,7 @@ class OpsCommands(commands.Cog):
 
 
 
-    @app_commands.command(name="reboot", description="🔒 Reboot the physical machine.")
+    @bot.tree.command(name="reboot", description="🔒 Reboot the physical machine.")
     async def slash_reboot(interaction: discord.Interaction):
         """
         Reboots the server by running 'sudo reboot'. Admin-only command.
@@ -299,8 +294,3 @@ class OpsCommands(commands.Cog):
                 )
             except discord.errors.ClientException:
                 print(f"Failed to send unexpected error message: {e}")
-
-
-async def setup(bot):
-    ##await bot.add_cog(OpsCommands(bot))
-    print("Loaded cog OpsCommands")

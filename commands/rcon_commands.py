@@ -4,23 +4,19 @@ import sys
 import subprocess
 
 import discord
-from discord.ext import commands
 from discord import app_commands
 
 from config import *
 import utility.helper_functions as helpers
 import utility.rcon_helpers as rcon
 
-class RconCommands(commands.Cog):
-    def __init__(bot):
-        bot = bot
 
+# ──────────────────────────
+# Slash Commands
+# ──────────────────────────
+def register_commands(bot):
 
-    # ──────────────────────────
-    # Slash Commands
-    # ──────────────────────────
-
-    @app_commands.command(name="players", description="Show who is online, who has joined today and how many joined yesterday.")
+    @bot.tree.command(name="players", description="Show who is online, who has joined today and how many joined yesterday.")
     async def slash_players(interaction: discord.Interaction):
         """
         1) Counts how many players joined yesterday, how many are online now, and how many joined today.
@@ -148,7 +144,7 @@ class RconCommands(commands.Cog):
 
 
 
-    @app_commands.command(name="say", description="Send a chat message to the server from Discord.")
+    @bot.tree.command(name="say", description="Send a chat message to the server from Discord.")
     @app_commands.describe(message="The message to send")
     async def slash_say(interaction: discord.Interaction, message: str):
         """
@@ -178,7 +174,7 @@ class RconCommands(commands.Cog):
 
 
 
-    @app_commands.command(name="weather", description="Set the weather in the Minecraft world.")
+    @bot.tree.command(name="weather", description="Set the weather in the Minecraft world.")
     @app_commands.describe(
         weather_type="Choose the type of weather to set.",
         duration_minutes="Optional duration in minutes for the weather to last."
@@ -262,7 +258,7 @@ class RconCommands(commands.Cog):
 
 
 
-    @app_commands.command(name="kill", description="🔒 Kill specific types of entities in the Minecraft world.")
+    @bot.tree.command(name="kill", description="🔒 Kill specific types of entities in the Minecraft world.")
     @app_commands.describe(target="What to kill (items, vanilla_animals, vanilla_monsters, vanilla_villagers).")
     @app_commands.choices(target=[
         discord.app_commands.Choice(name="items", value="items"),
@@ -349,7 +345,7 @@ class RconCommands(commands.Cog):
 
 
 
-    @app_commands.command(name="command", description="🔒Execute an RCON command on the server")
+    @bot.tree.command(name="command", description="🔒Execute an RCON command on the server")
     @app_commands.describe(rcon_command="The RCON command to run on the server.")
     async def slash_rcon_command(interaction: discord.Interaction, rcon_command: str):
         """Runs an RCON command if the user is on the ADMIN_USERS whitelist."""
@@ -372,9 +368,3 @@ class RconCommands(commands.Cog):
             rcon.close_rcon_connection()
             await interaction.response.send_message(f"RCON command failed: {e}", ephemeral=True)
 
-
-
-async def setup(bot):
-    #rcon.ensure_rcon_connection()
-    #await bot.add_cog(RconCommands(bot))
-    print("Loaded cog RconCommands")
