@@ -8,6 +8,7 @@ import discord
 from discord import app_commands
 
 from config import *
+import utility.ops_helpers as ops_helpers
 
 # ──────────────────────────
 # Slash Commands
@@ -167,67 +168,38 @@ def register_commands(bot):
     @bot.tree.command(name="server", description="🔒 Control or check the MC server instance (stop, start, restart, status).")
     @app_commands.describe(action="Choose an action for the server service.")
     @app_commands.choices(action=[
-        discord.app_commands.Choice(name="stop", value="stop"),
+        discord.app_commands.Choice(name="status", value="status"),
         discord.app_commands.Choice(name="start", value="start"),
-        discord.app_commands.Choice(name="restart", value="restart"),
-        discord.app_commands.Choice(name="status", value="status")
+        discord.app_commands.Choice(name="stop", value="stop"),
+        discord.app_commands.Choice(name="restart", value="restart")
     ])
     async def slash_server(interaction: discord.Interaction, action: str):
         """
-        Executes 'sudo systemctl <action> SERVICE_NAME'.
+        Executes 'sudo systemctl <action> SERVICE_NAME' asynchronously.
         - For 'status', only show the top portion before the logs (stopping at the first blank line).
         - For stop/start/restart, confirm success or failure.
         """
         try:
+            await interaction.response.defer(ephemeral=False, thinking=True)
+
             if action == "status":
-                # Show the current status of the service, ephemeral
-                raw_output = subprocess.check_output(
-                    ["sudo", "systemctl", "status", SERVICE_NAME],
-                    stderr=subprocess.STDOUT
-                ).decode(errors="ignore")
-
-                # Split at the first blank line to omit the trailing logs
-                parts = raw_output.split("\n\n", 1)
-                trimmed_output = parts[0].strip()  # Everything before the logs
-
-                # Optionally enforce Discord's 2000-char limit if needed:
-                if len(trimmed_output) > 1900:
-                    trimmed_output = trimmed_output[:1900] + "\n... (truncated) ..."
-
-                await interaction.response.send_message(
-                    f"**Status for** `{SERVICE_NAME}`:\n```\n{trimmed_output}\n```",
-                    ephemeral=False
-                )
+                # Fetch and display service status
+                status_message = await ops_helpers.async_service_status(SERVICE_NAME)
+                await interaction.followup.send(status_message, ephemeral=False)
             else:
                 # Authorization (whitelist)
                 if interaction.user.id not in ADMIN_USERS:
-                    await interaction.response.send_message("Sorry, you are not authorized to use this command.", ephemeral=True)
-                    return            
-                # stop, start, or restart
-                subprocess.check_output(
-                    ["sudo", "systemctl", action, SERVICE_NAME],
-                    stderr=subprocess.STDOUT
-                )
-                await interaction.response.send_message(
-                    f"Server action **{action}** completed successfully on `{SERVICE_NAME}`.",
-                    ephemeral=False
-                )
-        except subprocess.CalledProcessError as e:
-            # Capture any systemctl error output
-            error_output = e.output.decode(errors="ignore") if e.output else "No output"
-            # Crop if it's too large
-            if len(error_output) > 1900:
-                error_output = error_output[:1900] + "\n... (truncated) ..."
-            await interaction.response.send_message(
-                f"Failed to **{action}** `{SERVICE_NAME}`.\n```\n{error_output}\n```",
-                ephemeral=True
-            )
+                    await interaction.followup.send("Sorry, you are not authorized to use this command.", ephemeral=True)
+                    return
+
+                # Perform stop, start, or restart
+                success_message = await ops_helpers.async_service_control(action, SERVICE_NAME)
+                await interaction.followup.send(success_message, ephemeral=False)
         except Exception as ex:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 f"Error running **{action}** on `{SERVICE_NAME}`: {ex}",
                 ephemeral=True
             )
-
 
 
 
