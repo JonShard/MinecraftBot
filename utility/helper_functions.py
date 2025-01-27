@@ -23,6 +23,7 @@ def update_csv_player_count():
         # If player_count is None or invalid, you could skip or set it to 0
         if player_count is None:
             count_to_log = 0
+            print("Warning. Playercound is None")
         else:
             count_to_log = player_count
 
@@ -297,3 +298,70 @@ async def repost_chat_window(interaction):
             # Delete and repost to put it at the bottom
             await post_or_refresh_chat_window(interaction.channel)
             print(f"Chat window moved to bottom after /say in channel {channel_id}.")
+
+
+def validate_string(
+    name: str, 
+    min_length: int = 1, 
+    max_length: int = 20, 
+    strict_alphanumeric: bool = True, 
+    strict_spaces: bool = False
+) -> str:
+    """
+    Validates a name string based on given criteria.
+    
+    Args:
+        name (str): The name to validate.
+        min_length (int): The minimum allowed length.
+        max_length (int): The maximum allowed length.
+        strict_alphanumeric (bool): If True, restrict to letters, numbers, dashes, and underscores.
+        strict_spaces (bool): If False, spaces are allowed in the name.
+
+    Returns:
+        str: An error message if invalid; otherwise, an empty string.
+    """
+    # Check length constraints
+    if len(name) < min_length:
+        return f"Name must be at least {min_length} characters long."
+    if len(name) > max_length:
+        return f"Name cannot exceed {max_length} characters."
+
+    # Construct regex based on `allow_spaces`
+    pattern = r"^[a-zA-Z0-9 _-]+$" if not strict_spaces else r"^[a-zA-Z0-9_-]+$"
+
+    # Check strict alphanumeric restriction
+    if strict_alphanumeric and not re.match(pattern, name):
+        if not strict_spaces:
+            return "Name can only contain letters, numbers, dashes, underscores, and spaces."
+        else:
+            return "Name can only contain letters, numbers, dashes, and underscores."
+
+    # If all checks pass
+    return ""
+
+
+
+def sanitize_string(name: str, replace_whitespace: bool = True, to_lowercase: bool = False) -> str:
+    """
+    Sanitizes a name by optionally replacing whitespace with underscores and converting to lowercase.
+
+    Args:
+        name (str): The name to sanitize.
+        replace_whitespace (bool): If True, replaces spaces, tabs, and other whitespace with underscores.
+        to_lowercase (bool): If True, converts the input string to lowercase.
+
+    Returns:
+        str: The sanitized name.
+    """
+    # Replace whitespace with underscores if enabled
+    if replace_whitespace:
+        name = re.sub(r"\s+", "_", name)  # Replace all whitespace (spaces, tabs, etc.) with underscores
+    
+    # Convert to lowercase if enabled
+    if to_lowercase:
+        name = name.lower()
+    
+    # Remove newlines and carriage returns
+    sanitized = name.replace("\n", "").replace("\r", "")
+    
+    return sanitized

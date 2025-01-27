@@ -1,0 +1,7 @@
+discord.py==2.2.3  # Ensure compatibility with the latest version
+mcrcon==0.7.2      # For RCON communication with Minecraft servers
+matplotlib==3.8.0  # For generating graphs
+numpy==1.26.0      # Required by Matplotlib
+psutil==5.9.6      # For system information like CPU and memory usage
+aiohttp==3.8.5     # For asynchronous HTTP requests, if needed
+

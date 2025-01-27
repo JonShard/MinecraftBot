@@ -8,29 +8,13 @@ from config import *
 import utility.background_tasks as tasks
 import utility.helper_functions as helpers
 
-# from discord.ui import Select, View
-
-# class DatePickerView(View):
-#     def __init__(self):
-#         super().__init__()
-#         options = [
-#             discord.SelectOption(label="Today", value="today"),
-#             discord.SelectOption(label="Tomorrow", value="tomorrow"),
-#             discord.SelectOption(label="Next Week", value="next_week"),
-#         ]
-#         add_item(Select(placeholder="Choose a date...", options=options))
-
-# @app_commands.command(name="pick_date", description="Pick a date for your event.")
-# async def pick_date(interaction: discord.Interaction):
-#     view = DatePickerView()
-#     await interaction.response.send_message("Select a date:", view=view)
-
-
+# Create bot instance
 intents = discord.Intents.default()
 intents.message_content = False
 
 bot = commands.Bot(command_prefix="!", intents=intents) 
 
+# Register commands from all .py files in the commands folder
 commands_dir = "./commands"  # Path to the command files
 for filename in os.listdir(commands_dir):
     if filename.endswith(".py") and not filename.startswith("_"):
@@ -51,7 +35,6 @@ for filename in os.listdir(commands_dir):
 # ──────────────────────────
 # Bot Lifecycle
 # ──────────────────────────
-
 @bot.event
 async def on_ready():
     try:
@@ -68,5 +51,6 @@ async def on_ready():
 
     # Start the new CSV logger in the background
     bot.loop.create_task(tasks.player_count_logger_task())
+    helpers.update_csv_player_count()
     helpers.generate_player_count_graph()
 bot.run(BOT_TOKEN)
