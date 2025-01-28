@@ -12,7 +12,7 @@ from config import *
 # For running tar async
 executor = ThreadPoolExecutor()
 
-def create_world_backup(prefix: str) -> str:
+def create_world_backup_helper(prefix: str) -> str:
     """
     Creates a timestamped tar.gz backup of the Minecraft world folder.
     Args:
@@ -20,6 +20,7 @@ def create_world_backup(prefix: str) -> str:
     Returns:
         str: The path of the created backup.
     """
+    print("Starting world backup...")
     # Fetch the world folder name from server.properties
     try:
         world_name = props_helper.get_server_property(props_helper.ServerProperties.LEVEL_NAME, MC_SERVER_PATH)
@@ -53,7 +54,7 @@ async def async_create_backup(prefix: str) -> str:
     Runs the create_backup function asynchronously using a thread pool.
     """
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(executor, create_world_backup, prefix)
+    return await loop.run_in_executor(executor, create_world_backup_helper, prefix)
 
 
 

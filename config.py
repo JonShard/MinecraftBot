@@ -15,11 +15,12 @@ BACKUP_PATH = "/var/mcbackup/"
 MODPACK_URL = "https://www.curseforge.com/minecraft/modpacks/the-phoenix-den-pack"
 
 # Optional Configuration:
-STAT_CSV_INTERVAL = 5 # How often in minutes to check for players to store in CSV for player graph
+STAT_CSV_INTERVAL_MIN = 5 # How often in minutes to check for players to store in CSV for player graph
 LATEST_LOG_LINES = 10    # How many lines of log to provide in /status command.
-PRESENCE_UPDATE_INTERVAL = 3 # How often in seconds to update the bot's presence "Playing X players online..."
-CHAT_UPDATE_INTERVAL = 5 # How often to refresh the chat window in seconds
-CHAT_DURATION = 900 # How long the chat window remains active in seconds (15 minutes)
+PRESENCE_UPDATE_INTERVAL_SEC = 3 # How often in seconds to update the bot's presence "Playing X players online..."
+BACKUP_INTERVAL_MIN = 15 # How often in minutes to create a new minecraft world backup
+CHAT_UPDATE_INTERVAL_SEC = 5 # How often to refresh the chat window in seconds
+CHAT_DURATION_SEC = 900 # How long the chat window remains active in seconds (15 minutes)
 CHAT_LINES = 10 # How many lines of chat in code block
 DISCORD_CHAR_LIMIT = 2000
 DISCORD_DROPDOWN_LIMIT = 25

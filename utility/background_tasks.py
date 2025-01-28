@@ -5,13 +5,14 @@ import discord
 from discord.ext import tasks
 
 from config import *
-import utility.rcon_helpers as rcon
+import utility.rcon_helpers as rcon_helpers
 import utility.helper_functions as helpers
+import utility.ops_helpers as ops_helpers
 
 # ──────────────────────────
 # Background Task: Status Presence
 # ──────────────────────────
-@tasks.loop(seconds=PRESENCE_UPDATE_INTERVAL)
+@tasks.loop(seconds=PRESENCE_UPDATE_INTERVAL_SEC)
 async def update_bot_presence_task(bot):
     global player_count, ext_chunk_count
     last_lag_timestamp = None  # Timestamp of the last detected lag from the log
@@ -24,7 +25,7 @@ async def update_bot_presence_task(bot):
 
     try:
         # Try fetching the player count from RCON
-        count = rcon.get_player_count_from_rcon()
+        count = rcon_helpers.get_player_count_from_rcon()
 
         # If RCON fails to get a count, set status to offline
         if count is None:
@@ -86,7 +87,7 @@ async def update_bot_presence_task(bot):
     # Update bot presence with the current status message
     await bot.change_presence(activity=discord.Game(status_message))
 
-@tasks.loop(minutes=STAT_CSV_INTERVAL)
+@tasks.loop(minutes=STAT_CSV_INTERVAL_MIN)
 async def player_count_logger_task():
     """
     A background task that runs indefinitely,
@@ -105,7 +106,7 @@ async def background_chat_update_task(channel_id: int):
     until the 5-minute timer expires.
     """
     while True:
-        await asyncio.sleep(CHAT_UPDATE_INTERVAL)
+        await asyncio.sleep(CHAT_UPDATE_INTERVAL_SEC)
         # If the window is missing or removed from dict, stop
         if channel_id not in CHAT_WINDOWS:
             return
@@ -135,3 +136,8 @@ async def background_chat_update_task(channel_id: int):
             # Remove and stop
             del CHAT_WINDOWS[channel_id]
             return
+
+
+@tasks.loop(minutes=BACKUP_INTERVAL_MIN)
+async def backup_task():
+    await ops_helpers.async_create_backup("backup")

@@ -9,7 +9,7 @@ from discord import app_commands
 
 from config import *
 import utility.helper_functions as helpers
-import utility.rcon_helpers as rcon
+import utility.rcon_helpers as rcon_helpers
 
 class RconCommands(commands.Cog):
     def __init__(bot):
@@ -52,14 +52,14 @@ class RconCommands(commands.Cog):
             players_yesterday_count = 0
 
         # ─── 2) CURRENT ONLINE PLAYERS VIA RCON ───
-        rcon.ensure_rcon_connection()
-        if rcon.mcr_connection is None:
+        rcon_helpers.ensure_rcon_connection()
+        if rcon_helpers.mcr_connection is None:
             # We'll still try to show the other info even if RCON is down
             player_count_now = 0
             currently_online = []
         else:
             try:
-                list_response = rcon.mcr_connection.command("list")
+                list_response = rcon_helpers.mcr_connection.command("list")
                 match = re.search(r"There are (\d+) of a max of \d+ players online:?\s*(.*)", list_response)
                 if match:
                     player_count_now = int(match.group(1))
@@ -72,7 +72,7 @@ class RconCommands(commands.Cog):
                     player_count_now = 0
                     currently_online = []
             except Exception as e:
-                rcon.close_rcon_connection()
+                rcon_helpers.close_rcon_connection()
                 print(f"Failed to retrieve current player list: {e}")
                 player_count_now = 0
                 currently_online = []
@@ -155,21 +155,21 @@ class RconCommands(commands.Cog):
         Send /say to the server with a color-coded prefix,
         then move the chat window to the bottom if it exists in this channel.
         """
-        rcon.ensure_rcon_connection()
-        if rcon.mcr_connection is None:
+        rcon_helpers.ensure_rcon_connection()
+        if rcon_helpers.mcr_connection is None:
             await interaction.response.send_message("Could not connect to RCON. Try again later.", ephemeral=True)
             return
 
         try:
             # Format text for Minecraft
             say_string = f"§7§o{interaction.user.name}: {message}§r"
-            rcon.mcr_connection.command(f"say {say_string}")
+            rcon_helpers.mcr_connection.command(f"say {say_string}")
             await interaction.response.send_message(
                 f"Sent to server chat:\n`{interaction.user.name}: {message}`",
                 ephemeral=False
             )
         except Exception as e:
-            rcon.close_rcon_connection()
+            rcon_helpers.close_rcon_connection()
             await interaction.response.send_message(f"Failed to send message: {e}", ephemeral=True)
             return
 
@@ -194,8 +194,8 @@ class RconCommands(commands.Cog):
         """
         await interaction.response.defer(ephemeral=False, thinking=True)
 
-        rcon.ensure_rcon_connection()
-        if rcon.mcr_connection is None:
+        rcon_helpers.ensure_rcon_connection()
+        if rcon_helpers.mcr_connection is None:
             await interaction.followup.send("Could not connect to RCON. Try again later.", ephemeral=True)
             return
 
@@ -223,7 +223,7 @@ class RconCommands(commands.Cog):
                 command = f"weather {weather_type}"
 
             # Execute the command
-            response = rcon.mcr_connection.command(command)
+            response = rcon_helpers.mcr_connection.command(command)
 
             # Format the duration into human-readable units
             if duration_minutes:
@@ -256,7 +256,7 @@ class RconCommands(commands.Cog):
                 ephemeral=False
             )
         except Exception as e:
-            rcon.close_rcon_connection()
+            rcon_helpers.close_rcon_connection()
             await interaction.followup.send(f"Failed to set weather: {e}", ephemeral=True)
 
 
@@ -285,15 +285,15 @@ class RconCommands(commands.Cog):
             await interaction.response.send_message("Sorry, you are not authorized to use this command.", ephemeral=True)
             return  
 
-        rcon.ensure_rcon_connection()
-        if rcon.mcr_connection is None:
+        rcon_helpers.ensure_rcon_connection()
+        if rcon_helpers.mcr_connection is None:
             await interaction.followup.send("Could not connect to RCON. Try again later.", ephemeral=True)
             return
 
         try:
             response_lines = []
             if target == "items":
-                response = rcon.mcr_connection.command("kill @e[type=minecraft:item]")
+                response = rcon_helpers.mcr_connection.command("kill @e[type=minecraft:item]")
                 response_lines.append(f"`{response.strip()}` - Cleared all dropped items.")
 
             elif target == "vanilla_animals":
@@ -304,7 +304,7 @@ class RconCommands(commands.Cog):
                     "minecraft:fox", "minecraft:frog", "minecraft:turtle", "minecraft:snow_golem"
                 ]
                 for entity in animal_types:
-                    response = rcon.mcr_connection.command(f"kill @e[type={entity}]")
+                    response = rcon_helpers.mcr_connection.command(f"kill @e[type={entity}]")
                     if not response.startswith("No entity was found"):
                         response_lines.append(f"{response.strip()} - Cleared all {entity.split(':')[1]}s.")
 
@@ -319,7 +319,7 @@ class RconCommands(commands.Cog):
                     "minecraft:guardian", "minecraft:elder_guardian", "minecraft:piglin", "minecraft:piglin_brute"
                 ]
                 for entity in monster_types:
-                    response = rcon.mcr_connection.command(f"kill @e[type={entity}]")
+                    response = rcon_helpers.mcr_connection.command(f"kill @e[type={entity}]")
                     if not response.startswith("No entity was found"):
                         response_lines.append(f"{response.strip()} - Cleared all {entity.split(':')[1]}s.")
 
@@ -329,7 +329,7 @@ class RconCommands(commands.Cog):
                     "minecraft:iron_golem", "minecraft:snow_golem"
                 ]
                 for entity in villager_types:
-                    response = rcon.mcr_connection.command(f"kill @e[type={entity}]")
+                    response = rcon_helpers.mcr_connection.command(f"kill @e[type={entity}]")
                     if not response.startswith("No entity was found"):
                         response_lines.append(f"{response.strip()} - Cleared all {entity.split(':')[1]}s.")
 
@@ -342,7 +342,7 @@ class RconCommands(commands.Cog):
             await interaction.followup.send(final_response, ephemeral=False)
 
         except Exception as e:
-            rcon.close_rcon_connection()
+            rcon_helpers.close_rcon_connection()
             await interaction.followup.send(f"Failed to execute kill command: {e}", ephemeral=True)
 
 
@@ -357,19 +357,19 @@ class RconCommands(commands.Cog):
             await interaction.response.send_message("Sorry, you are not authorized to use this command.", ephemeral=True)
             return
 
-        rcon.ensure_rcon_connection()
-        if rcon.mcr_connection is None:
+        rcon_helpers.ensure_rcon_connection()
+        if rcon_helpers.mcr_connection is None:
             await interaction.response.send_message("Could not connect to RCON. Try again later.", ephemeral=True)
             return
 
         try:
-            response = rcon.mcr_connection.command(rcon_command)
+            response = rcon_helpers.mcr_connection.command(rcon_command)
             reply = f"Command executed: `{rcon_command}`"
             if response.strip():
                 reply += f"\nResponse: ```{response}```"
             await interaction.response.send_message(reply, ephemeral=False)
         except Exception as e:
-            rcon.close_rcon_connection()
+            rcon_helpers.close_rcon_connection()
             await interaction.response.send_message(f"RCON command failed: {e}", ephemeral=True)
 
 

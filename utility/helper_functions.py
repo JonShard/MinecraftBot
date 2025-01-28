@@ -186,7 +186,7 @@ async def post_or_refresh_chat_window(bot, channel: discord.abc.Messageable):
     new_msg = await channel.send(content=content)
 
     # 3) Setup state in CHAT_WINDOWS
-    expires_at = asyncio.get_event_loop().time() + CHAT_DURATION
+    expires_at = asyncio.get_event_loop().time() + CHAT_DURATION_SEC
     task = bot.loop.create_task(tasks.background_chat_update_task(channel_id))
 
     CHAT_WINDOWS[channel_id] = {
@@ -294,7 +294,7 @@ async def repost_chat_window(interaction):
         channel_id = interaction.channel.id
         if channel_id in CHAT_WINDOWS:
             # Extend the timer (reset 5-minute countdown)
-            CHAT_WINDOWS[channel_id]["expires_at"] = asyncio.get_event_loop().time() + CHAT_DURATION
+            CHAT_WINDOWS[channel_id]["expires_at"] = asyncio.get_event_loop().time() + CHAT_DURATION_SEC
             # Delete and repost to put it at the bottom
             await post_or_refresh_chat_window(interaction.channel)
             print(f"Chat window moved to bottom after /say in channel {channel_id}.")
