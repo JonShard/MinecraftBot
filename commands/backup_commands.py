@@ -1,7 +1,6 @@
 import os
-import re
 import shutil
-import subprocess
+import re
 import tarfile
 import datetime
 import discord
@@ -13,62 +12,10 @@ import utility.server_properties_helper as props_helper
 
 from config import *
 
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
-
-# For running tar async
-executor = ThreadPoolExecutor()
-
-
-def create_world_backup(prefix: str) -> str:
-    """
-    Creates a timestamped tar.gz backup of the Minecraft world folder.
-    Args:
-        prefix (str): The prefix for the backup file name.
-    Returns:
-        str: The path of the created backup.
-    """
-    # Fetch the world folder name from server.properties
-    try:
-        world_name = props_helper.get_server_property(props_helper.ServerProperties.LEVEL_NAME, MC_SERVER_PATH)
-    except FileNotFoundError as e:
-        raise RuntimeError("Failed to find server.properties.") from e
-    
-    if not world_name:
-        raise ValueError("World name not found in server.properties.")
-    
-    world_path = os.path.join(MC_SERVER_PATH, world_name)
-    if not os.path.exists(world_path):
-        raise FileNotFoundError(f"World folder '{world_name}' does not exist at {world_path}.")
-
-    # Create a timestamped backup name
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M")
-    backup_name = f"{prefix}_{timestamp}.tar.gz"
-    backup_path = os.path.join(BACKUP_PATH, backup_name)
-
-    # Archive the world folder
-    with tarfile.open(backup_path, "w:gz") as tar:
-        tar.add(world_path, arcname=os.path.basename(world_path))
-
-    print(f"Created world backup: {backup_path}")
-    return backup_path
-
-
-
-# Function to run the backup in a separate thread
-async def async_create_backup(prefix: str) -> str:
-    """
-    Runs the create_backup function asynchronously using a thread pool.
-    """
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(executor, create_world_backup, prefix)
-
-
 # Use regex to extract the name before the timestamp
 def extract_name(full_name: str) -> str:
     match = re.match(r"^(.*?)(_?\d{4}-\d{2}-\d{2}T\d{2}-\d{2}).*", full_name)
     return match.group(1) if match else full_name  # Fallback to full name if no match
-
 
 # Create a command group for /backup
 class BackupCommands(app_commands.Group):
@@ -222,7 +169,7 @@ class BackupCommands(app_commands.Group):
                     )
                     
                     # Step 2: Create the restore point asynchronously
-                    restore_point = await async_create_backup("restore_point")
+                    restore_point = await ops_helpers.async_create_backup("restore_point")
 
                     await interaction.followup.send(
                         f"Restore point created at `{restore_point}`\nRestoring selected backup...",
@@ -298,7 +245,7 @@ class BackupCommands(app_commands.Group):
             await interaction.response.send_message(
                         "Creating a backup... This may take a while. Please wait. ⏳", ephemeral=True
                     )
-            output_name = await async_create_backup(helpers.sanitize_string(name, True, True))
+            output_name = await ops_helpers.async_create_backup(helpers.sanitize_string(name, True, True))
 
             await interaction.followup.send(f"Backup `{output_name}` created successfully!", ephemeral=False)
         except Exception as e:

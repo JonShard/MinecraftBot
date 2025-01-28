@@ -46,11 +46,10 @@ async def on_ready():
     except Exception as e:
         print(f"Error syncing slash commands: {e}")
 
-    bot.loop.create_task(tasks.update_bot_presence_task(bot))
-    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
-
+    # bot.loop.create_task(tasks.update_bot_presence_task(bot))
+    tasks.update_bot_presence_task.start(bot)
+    
     # Start the new CSV logger in the background
-    bot.loop.create_task(tasks.player_count_logger_task())
-    helpers.update_csv_player_count()
-    helpers.generate_player_count_graph()
+    tasks.player_count_logger_task.start()
+    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
 bot.run(BOT_TOKEN)

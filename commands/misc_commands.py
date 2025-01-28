@@ -23,7 +23,6 @@ def register_commands(bot):
         await interaction.followup.send("Chat window created or refreshed for this channel.", ephemeral=False)
 
 
-
     @bot.tree.command(name="modpack", description="Provides the modpack download link and server's public IP.")
     async def slash_modpack(interaction: discord.Interaction):
         """

@@ -15,7 +15,7 @@ BACKUP_PATH = "/var/mcbackup/"
 MODPACK_URL = "https://www.curseforge.com/minecraft/modpacks/the-phoenix-den-pack"
 
 # Optional Configuration:
-STAT_CSV_INTERVAL = 300 # How often in seconds to check for players to store in CSV for player graph
+STAT_CSV_INTERVAL = 5 # How often in minutes to check for players to store in CSV for player graph
 LATEST_LOG_LINES = 10    # How many lines of log to provide in /status command.
 PRESENCE_UPDATE_INTERVAL = 3 # How often in seconds to update the bot's presence "Playing X players online..."
 CHAT_UPDATE_INTERVAL = 5 # How often to refresh the chat window in seconds
@@ -26,9 +26,9 @@ DISCORD_DROPDOWN_LIMIT = 25
 
 # For the commands that cause changes:
 ADMIN_USERS = [
-               # 257785837813497856, # TwistedAro
-               # 209382762971398144, # Algodoogle
-               # 300930955579752448, # EarthFishy
+               257785837813497856, # TwistedAro
+               209382762971398144, # Algodoogle
+               300930955579752448, # EarthFishy
                191561233755799554, # JonShard
             ]
 STAT_CSV_PATH = "stats.csv"
