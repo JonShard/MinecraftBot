@@ -1,12 +1,25 @@
 import os
-import importlib
-
+import asyncio
 import discord
 from discord.ext import commands
 
-from config import *
-import utility.background_tasks as tasks
-import utility.helper_functions as helpers
+import config.config as cfg
+
+# ──────────────────────────
+# Load Config Before Creating the Bot
+# ──────────────────────────
+async def load_config_early():
+    if not await cfg.load_config():
+        print("ERROR: Failed to load configuration. An error occured. Exiting...")
+        exit(1)  # Stop execution if config failed to load
+    if cfg.config is None:
+        print("ERROR: Failed to load configuration. config is None Exiting...")
+        exit(1)  # Stop execution if config failed to load
+
+# Run the config load early
+asyncio.run(load_config_early())
+
+
 
 # Create bot instance
 intents = discord.Intents.default()
@@ -32,11 +45,23 @@ for filename in os.listdir(commands_dir):
         except Exception as e:
             print(f"Error loading {module_name}: {e}")
 
+
+async def start_tasks():
+    import utility.background_tasks as tasks
+    tasks.update_bot_presence_task.start(bot) # bot.loop.create_task(tasks.update_bot_presence_task(bot))
+    tasks.player_count_logger_task.start() # Start the new CSV logger in the background
+    tasks.backup_task.start()
+
 # ──────────────────────────
 # Bot Lifecycle
 # ──────────────────────────
 @bot.event
 async def on_ready():
+    # Load config.yaml 
+    # await cfg.load_config
+    # if cfg.config is None:
+    #     print("WARNING! Missing config.yaml file")
+    #     bot.close()
     try:
         print("Attempting to sync commands...")
         synced_commands = await bot.tree.sync()        
@@ -46,9 +71,9 @@ async def on_ready():
     except Exception as e:
         print(f"Error syncing slash commands: {e}")
 
-    tasks.update_bot_presence_task.start(bot) # bot.loop.create_task(tasks.update_bot_presence_task(bot))
-    tasks.player_count_logger_task.start() # Start the new CSV logger in the background
-    tasks.backup_task.start()
-    
+    await start_tasks()
+
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
-bot.run(BOT_TOKEN)
+    
+    
+bot.run(cfg.config.bot.bot_token)

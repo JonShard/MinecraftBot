@@ -5,7 +5,7 @@ import requests
 import discord
 
 
-from config import *
+import config.config as cfg
 import utility.helper_functions as helpers
 
 def register_commands(bot):
@@ -37,7 +37,7 @@ def register_commands(bot):
             public_ip = "Unable to fetch public IP"
 
         # Parse the server port from server.properties
-        server_properties_path = os.path.join(MC_SERVER_PATH, "server.properties")
+        server_properties_path = os.path.join(cfg.config.minecraft.server_path, "server.properties")
         server_port = "25565"  # Default port
         try:
             with open(server_properties_path, "r") as file:
@@ -74,6 +74,6 @@ def register_commands(bot):
         await interaction.channel.send(
             content=(
                 f"**Server Address:** `{public_ip}`\n"
-                f"**Modpack:** {MODPACK_URL}"
+                f"**Modpack:** {cfg.config.minecraft.modpack_url}"
             )
         )

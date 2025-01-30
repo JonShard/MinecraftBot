@@ -4,7 +4,8 @@ import datetime
 import discord
 from discord.ext import tasks
 
-from config import *
+import config.config as cfg
+from utility.globals import chat_windows
 import utility.rcon_helpers as rcon_helpers
 import utility.helper_functions as helpers
 import utility.ops_helpers as ops_helpers
@@ -12,7 +13,7 @@ import utility.ops_helpers as ops_helpers
 # ──────────────────────────
 # Background Task: Status Presence
 # ──────────────────────────
-@tasks.loop(seconds=PRESENCE_UPDATE_INTERVAL_SEC)
+@tasks.loop(seconds=cfg.config.bot.presence.update_interval_sec)
 async def update_bot_presence_task(bot):
     global player_count, ext_chunk_count
     last_lag_timestamp = None  # Timestamp of the last detected lag from the log
@@ -35,7 +36,7 @@ async def update_bot_presence_task(bot):
             player_count = count
 
             # Read the log file and check for external chunk saving or lag
-            with open(LOG_FILE_PATH, 'r') as log_file:
+            with open(cfg.config.minecraft.log_file_path, 'r') as log_file:
                 log_contents = log_file.read()
             ext_chunk_count = len(re.findall(r'Saving oversized chunk', log_contents))
 
@@ -87,7 +88,7 @@ async def update_bot_presence_task(bot):
     # Update bot presence with the current status message
     await bot.change_presence(activity=discord.Game(status_message))
 
-@tasks.loop(minutes=STAT_CSV_INTERVAL_MIN)
+@tasks.loop(minutes=cfg.config.stats.csv_interval_min)
 async def player_count_logger_task():
     """
     A background task that runs indefinitely,
@@ -106,12 +107,12 @@ async def background_chat_update_task(channel_id: int):
     until the 5-minute timer expires.
     """
     while True:
-        await asyncio.sleep(CHAT_UPDATE_INTERVAL_SEC)
+        await asyncio.sleep(cfg.config.bot.chat.update_interval_sec)
         # If the window is missing or removed from dict, stop
-        if channel_id not in CHAT_WINDOWS:
+        if channel_id not in chat_windows:
             return
         
-        data = CHAT_WINDOWS[channel_id]
+        data = chat_windows[channel_id]
         now = asyncio.get_event_loop().time()
 
         # Time up?
@@ -121,7 +122,7 @@ async def background_chat_update_task(channel_id: int):
                 await data["message"].delete()
             except Exception as e:
                 print(f"Failed to delete expired chat window in channel {channel_id}: {e}")
-            del CHAT_WINDOWS[channel_id]
+            del chat_windows[channel_id]
             print(f"Chat window in channel {channel_id} expired.")
             return
 
@@ -134,10 +135,13 @@ async def background_chat_update_task(channel_id: int):
         except Exception as e:
             print(f"Failed to edit chat window in channel {channel_id}: {e}")
             # Remove and stop
-            del CHAT_WINDOWS[channel_id]
+            del chat_windows[channel_id]
             return
 
 
-@tasks.loop(minutes=BACKUP_INTERVAL_MIN)
+@tasks.loop(minutes=cfg.config.minecraft.backup.interval_min)
 async def backup_task():
-    await ops_helpers.async_create_backup("backup")
+    if cfg.config.minecraft.backup.enabled:
+        await ops_helpers.async_create_backup("backup")
+    else:
+        print("Backup task disabled, skipping.")

@@ -11,7 +11,8 @@ matplotlib.use('Agg')  # Use a non-GUI backend
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 
-from config import *
+import config.config as cfg
+from utility.globals import *
 import utility.background_tasks as tasks
 
 def update_csv_player_count():
@@ -41,10 +42,10 @@ def write_player_count_csv(row):
     Appends a single row [timestamp, player_count] to STAT_CSV_PATH.
     If the file doesn't exist, writes a header first.
     """
-    print(f"Writing row to {STAT_CSV_PATH}: {row}")  # Debug
-    file_exists = os.path.isfile(STAT_CSV_PATH)
+    print(f"Writing row to {cfg.config.stats.csv_path}: {row}")  # Debug
+    file_exists = os.path.isfile(cfg.config.stats.csv_path)
 
-    with open(STAT_CSV_PATH, mode="a", newline="", encoding="utf-8") as csvfile:
+    with open(cfg.config.stats.csv_path, mode="a", newline="", encoding="utf-8") as csvfile:
         writer = csv.writer(csvfile)
 
         # If it's a new file, write a header
@@ -65,11 +66,11 @@ def generate_player_count_graph():
     daily_counts = {}
 
     # 1) Read the CSV data
-    if not os.path.isfile(STAT_CSV_PATH):
+    if not os.path.isfile(cfg.config.stats.csv_path):
         print("No CSV found to plot.")
         return
 
-    with open(STAT_CSV_PATH, mode="r", encoding="utf-8") as csvfile:
+    with open(cfg.config.stats.csv_path, mode="r", encoding="utf-8") as csvfile:
         reader = csv.reader(csvfile)
         header = next(reader, None)  # Skip header row if present
         for row in reader:
@@ -148,9 +149,9 @@ def generate_player_count_graph():
     plt.legend(facecolor="#2f3136", edgecolor="none")
 
     plt.tight_layout()
-    plt.savefig(PLAYER_COUNT_PNG)
+    plt.savefig(cfg.config.stats.player_count_png)
     plt.close()
-    print(f"Saved dark-themed bar chart to {PLAYER_COUNT_PNG}.")
+    print(f"Saved dark-themed bar chart to {cfg.config.stats.player_count_png}.")
 
 
 
@@ -166,8 +167,8 @@ async def post_or_refresh_chat_window(bot, channel: discord.abc.Messageable):
     channel_id = channel.id
 
     # 1) Clear out old window if it exists
-    if channel_id in CHAT_WINDOWS:
-        old_data = CHAT_WINDOWS[channel_id]
+    if channel_id in chat_windows:
+        old_data = chat_windows[channel_id]
         try:
             await old_data["message"].delete()
         except Exception as e:
@@ -176,20 +177,20 @@ async def post_or_refresh_chat_window(bot, channel: discord.abc.Messageable):
         # Stop the old task
         if old_data["task"]:
             old_data["task"].cancel()
-        del CHAT_WINDOWS[channel_id]
+        del chat_windows[channel_id]
 
     # 2) Create a new message
-    lines = get_recent_chat_lines(CHAT_LINES)
+    lines = get_recent_chat_lines(cfg.config.bot.chat.lines)
     joined = "\n".join(lines)
     content = f"```text\n{joined}\n```"
 
     new_msg = await channel.send(content=content)
 
     # 3) Setup state in CHAT_WINDOWS
-    expires_at = asyncio.get_event_loop().time() + CHAT_DURATION_SEC
+    expires_at = asyncio.get_event_loop().time() + cfg.config.bot.chat.duration_min * 60 # 60 sec in a minute
     task = bot.loop.create_task(tasks.background_chat_update_task(channel_id))
 
-    CHAT_WINDOWS[channel_id] = {
+    chat_windows[channel_id] = {
         "message": new_msg,
         "expires_at": expires_at,
         "task": task
@@ -219,7 +220,7 @@ def get_recent_chat_lines(limit=10):
 
     try:
         # 1) Build file list for *.log* (including .log.gz), excluding debug
-        logs_cmd = f'ls -1 "{LOGS_DIR}"/*.log* 2>/dev/null || true'
+        logs_cmd = f'ls -1 "{cfg.config.minecraft.logs_dir}"/*.log* 2>/dev/null || true'
         logs_list = subprocess.check_output(logs_cmd, shell=True).decode(errors="ignore").split()
 
         # Exclude debug logs
@@ -292,9 +293,9 @@ def get_recent_chat_lines(limit=10):
 async def repost_chat_window(interaction):
         # "Move" the chat window if it exists in this channel
         channel_id = interaction.channel.id
-        if channel_id in CHAT_WINDOWS:
+        if channel_id in chat_windows:
             # Extend the timer (reset 5-minute countdown)
-            CHAT_WINDOWS[channel_id]["expires_at"] = asyncio.get_event_loop().time() + CHAT_DURATION_SEC
+            chat_windows[channel_id]["expires_at"] = asyncio.get_event_loop().time() + cfg.config.bot.chat.duration_min * 60 # 60 sec in a minute
             # Delete and repost to put it at the bottom
             await post_or_refresh_chat_window(interaction.channel)
             print(f"Chat window moved to bottom after /say in channel {channel_id}.")

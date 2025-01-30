@@ -1,5 +1,5 @@
 import asyncio
-
+import os
 import tarfile
 import datetime
 import asyncio
@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import utility.server_properties_helper as props_helper
 
-from config import *
+import config.config as cfg
 
 # For running tar async
 executor = ThreadPoolExecutor()
@@ -23,21 +23,21 @@ def create_world_backup_helper(prefix: str) -> str:
     print("Starting world backup...")
     # Fetch the world folder name from server.properties
     try:
-        world_name = props_helper.get_server_property(props_helper.ServerProperties.LEVEL_NAME, MC_SERVER_PATH)
+        world_name = props_helper.get_server_property(props_helper.ServerProperties.LEVEL_NAME, cfg.config.minecraft.server_path)
     except FileNotFoundError as e:
         raise RuntimeError("Failed to find server.properties.") from e
     
     if not world_name:
         raise ValueError("World name not found in server.properties.")
     
-    world_path = os.path.join(MC_SERVER_PATH, world_name)
+    world_path = os.path.join(cfg.config.minecraft.server_path, world_name)
     if not os.path.exists(world_path):
         raise FileNotFoundError(f"World folder '{world_name}' does not exist at {world_path}.")
 
     # Create a timestamped backup name
     timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M")
     backup_name = f"{prefix}_{timestamp}.tar.gz"
-    backup_path = os.path.join(BACKUP_PATH, backup_name)
+    backup_path = os.path.join(cfg.config.minecraft.backup.path, backup_name)
 
     # Archive the world folder
     with tarfile.open(backup_path, "w:gz") as tar:

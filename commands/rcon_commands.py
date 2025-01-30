@@ -6,7 +6,7 @@ import subprocess
 import discord
 from discord import app_commands
 
-from config import *
+import config.config as cfg
 import utility.helper_functions as helpers
 import utility.rcon_helpers as rcon_helpers
 
@@ -33,7 +33,7 @@ def register_commands(bot):
             # For instance, date -d '1 day ago' for the day:
             # (zcat logs/2025-01-18*.log.gz && cat logs/latest.log) ...
             players_yesterday_cmd = (
-                f"(zcat {LOGS_DIR}/$(date +'%Y-%m'-%d -d '1 day ago')*.log.gz 2>/dev/null || true) "
+                f"(zcat {cfg.config.minecraft.logs_dir}/$(date +'%Y-%m'-%d -d '1 day ago')*.log.gz 2>/dev/null || true) "
                 f"| grep joined | awk '{{print $6}}' | sort -u"
             )
             players_yesterday = subprocess.check_output(
@@ -76,7 +76,7 @@ def register_commands(bot):
         # ─── 3) PLAYERS WHO JOINED TODAY ───
         try:
             players_today_cmd = (
-                f"(zcat {LOGS_DIR}/$(date +'%Y-%m'-%d)*.log.gz && cat {os.path.join(LOGS_DIR, 'latest.log')}) "
+                f"(zcat {cfg.config.minecraft.logs_dir}/$(date +'%Y-%m'-%d)*.log.gz && cat {os.path.join(cfg.config.minecraft.logs_dir, 'latest.log')}) "
                 f"| grep joined | awk '{{print $6}}' | sort -u"
             )
             players_today_output = subprocess.check_output([players_today_cmd], shell=True).decode(errors="ignore").strip()
@@ -138,7 +138,7 @@ def register_commands(bot):
         await interaction.followup.send(
             content=reply,
             ephemeral=False,
-            file=discord.File("stat_players.png", filename="stat_players.png")
+            file=discord.File(cfg.config.stats.player_count_png, filename=cfg.config.stats.player_count_png)
         )
 
 
@@ -277,7 +277,7 @@ def register_commands(bot):
         await interaction.response.defer(ephemeral=False, thinking=True)
 
         # Authorization (whitelist)
-        if interaction.user.id not in ADMIN_USERS:
+        if interaction.user.id not in cfg.config.bot.admin_users:
             await interaction.response.send_message("Sorry, you are not authorized to use this command.", ephemeral=True)
             return  
 
@@ -349,7 +349,7 @@ def register_commands(bot):
     @app_commands.describe(rcon_command="The RCON command to run on the server.")
     async def slash_rcon_command(interaction: discord.Interaction, rcon_command: str):
         """Runs an RCON command if the user is on the ADMIN_USERS whitelist."""
-        if interaction.user.id not in ADMIN_USERS:
+        if interaction.user.id not in cfg.config.bot.admin_users:
             await interaction.response.send_message("Sorry, you are not authorized to use this command.", ephemeral=True)
             return
 

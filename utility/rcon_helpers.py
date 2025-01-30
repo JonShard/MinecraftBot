@@ -2,7 +2,7 @@ import os
 import re
 from mcrcon import MCRcon
 
-from config import *
+import config.config as cfg
 
 mcr_connection = None
 
@@ -24,7 +24,7 @@ def ensure_rcon_connection():
     rcon_password = None
 
     # Path to server.properties
-    server_properties_path = os.path.join(MC_SERVER_PATH, "server.properties")
+    server_properties_path = os.path.join(cfg.config.minecraft.server_path, "server.properties")
 
     try:
         # Parse RCON port and password from server.properties

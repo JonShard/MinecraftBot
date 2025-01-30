@@ -10,7 +10,7 @@ import utility.helper_functions as helpers
 import utility.ops_helpers as ops_helpers
 import utility.server_properties_helper as props_helper
 
-from config import *
+import config.config as cfg
 
 # Use regex to extract the name before the timestamp
 def extract_name(full_name: str) -> str:
@@ -26,7 +26,7 @@ class BackupCommands(app_commands.Group):
     @app_commands.describe(before_date="Optional: Show backups before this date (format DD-MM or DD-MM-YYYY). Ex: 23-01 or 23-01-2025")
     async def backup_list(self, interaction: discord.Interaction, before_date: str = None):
         """Lists all `.tar.gz` archives in the backup folder with size, timestamp, and name."""
-        if not os.path.exists(BACKUP_PATH):
+        if not os.path.exists(cfg.config.minecraft.backup.path):
             await interaction.response.send_message("Backup folder does not exist!", ephemeral=True)
             return
 
@@ -45,8 +45,8 @@ class BackupCommands(app_commands.Group):
 
         # Gather backups and sort by timestamp
         backups = [
-            (file, os.path.getsize(os.path.join(BACKUP_PATH, file)), os.path.getmtime(os.path.join(BACKUP_PATH, file)))
-            for file in os.listdir(BACKUP_PATH) if file.endswith(".tar.gz")
+            (file, os.path.getsize(os.path.join(cfg.config.minecraft.backup.path, file)), os.path.getmtime(os.path.join(cfg.config.minecraft.backup.path, file)))
+            for file in os.listdir(cfg.config.minecraft.backup.path) if file.endswith(".tar.gz")
         ]
         backups.sort(key=lambda x: x[2], reverse=True)  # Sort by timestamp (descending)
 
@@ -69,9 +69,9 @@ class BackupCommands(app_commands.Group):
         backup_message = "```\n" + "\n".join(formatted_backups) + "\n```"
 
         # Trim the message if it exceeds DISCORD_CHAR_LIMIT
-        if len(backup_message) > DISCORD_CHAR_LIMIT:
+        if len(backup_message) > cfg.config.bot.discord_char_limit:
             max_backups = len(formatted_backups)
-            while len(backup_message) > DISCORD_CHAR_LIMIT and max_backups > 0:
+            while len(backup_message) > cfg.config.bot.discord_char_limit and max_backups > 0:
                 max_backups -= 1
                 backup_message = "```\n" + "\n".join(formatted_backups[:max_backups]) + "\n...```"
             print(f"Trimmed backup list to fit within Discord's character limit. {len(formatted_backups) - max_backups} entries removed.")
@@ -91,7 +91,7 @@ class BackupCommands(app_commands.Group):
     async def restore_backup(self, interaction: discord.Interaction, before_date: str = None):
         """Restores a backup by showing a dropdown of available backups."""
         # Authorization (whitelist)
-        if interaction.user.id not in ADMIN_USERS:
+        if interaction.user.id not in cfg.config.bot.admin_users:
             await interaction.response.send_message("Sorry, you are not authorized to use this command.", ephemeral=True)
             return     
         # Parse the before_date or use the current timestamp
@@ -109,8 +109,8 @@ class BackupCommands(app_commands.Group):
 
         # Gather backups and filter by timestamp
         backups = [
-            (file, os.path.getmtime(os.path.join(BACKUP_PATH, file)), os.path.getsize(os.path.join(BACKUP_PATH, file)))
-            for file in os.listdir(BACKUP_PATH) if file.endswith(".tar.gz")
+            (file, os.path.getmtime(os.path.join(cfg.config.minecraft.backup.path, file)), os.path.getsize(os.path.join(cfg.config.minecraft.backup.path, file)))
+            for file in os.listdir(cfg.config.minecraft.backup.path) if file.endswith(".tar.gz")
         ]
         filtered_backups = [
             (file, mtime, size) for file, mtime, size in sorted(backups, key=lambda x: x[1], reverse=True)
@@ -122,7 +122,7 @@ class BackupCommands(app_commands.Group):
             return
 
         # Limit the dropdown options to DISCORD_DROPDOWN_LIMIT
-        limited_backups = filtered_backups[:DISCORD_DROPDOWN_LIMIT]
+        limited_backups = filtered_backups[:cfg.config.bot.discord_dropdown_limit]
 
         # Get newest and oldest backups in the set
         newest_backup = limited_backups[0]
@@ -145,7 +145,7 @@ class BackupCommands(app_commands.Group):
 
             async def callback(self, interaction: discord.Interaction):
                 selected_backup = self.values[0]
-                backup_path = os.path.join(BACKUP_PATH, selected_backup)
+                backup_path = os.path.join(cfg.config.minecraft.backup.path, selected_backup)
 
                 try:
 
@@ -155,10 +155,10 @@ class BackupCommands(app_commands.Group):
                         ephemeral=True
                     )
                     try:
-                        await ops_helpers.async_service_control("stop", SERVICE_NAME)
+                        await ops_helpers.async_service_control("stop", cfg.config.minecraft.service_name)
                     except Exception as ex:
                         await interaction.followup.send(
-                            f"Error running **stop** on `{SERVICE_NAME}`\nCan not restore backup to a running MC server",
+                            f"Error running **stop** on `{cfg.config.minecraft.service_name}`\nCan not restore backup to a running MC server",
                             ephemeral=True
                         )
                         return
@@ -177,11 +177,11 @@ class BackupCommands(app_commands.Group):
                     )
                     
                     # Step 3: Replace the Minecraft world folder within the server path
-                    world_name = props_helper.get_server_property(props_helper.ServerProperties.LEVEL_NAME, MC_SERVER_PATH)  # Get the world folder name
-                    world_path = os.path.join(MC_SERVER_PATH, world_name)  # Path to the world folder
+                    world_name = props_helper.get_server_property(props_helper.ServerProperties.LEVEL_NAME, cfg.config.minecraft.server_path)  # Get the world folder name
+                    world_path = os.path.join(cfg.config.minecraft.server_path, world_name)  # Path to the world folder
 
                     # Ensure the parent directory exists
-                    os.makedirs(MC_SERVER_PATH, exist_ok=True)
+                    os.makedirs(cfg.config.minecraft.server_path, exist_ok=True)
 
                     # Remove the existing world folder if it exists
                     if os.path.exists(world_path):
@@ -190,21 +190,21 @@ class BackupCommands(app_commands.Group):
                     # Extract the backup into the MC_SERVER_PATH, ensuring the world is placed correctly
                     with tarfile.open(backup_path, "r:gz") as tar:
                         # Extract the world folder to its proper location
-                        tar.extractall(MC_SERVER_PATH)
+                        tar.extractall(cfg.config.minecraft.server_path)
 
                     # Restart Minecraft server
                     try:
-                        await ops_helpers.async_service_control("start", SERVICE_NAME)
+                        await ops_helpers.async_service_control("start", cfg.config.minecraft.service_name)
                     except Exception as ex:
                         await interaction.followup.send(
-                            f"Error running **start** on `{SERVICE_NAME}`\nPlease investigate the MC server.",
+                            f"Error running **start** on `{cfg.config.minecraft.service_name}`\nPlease investigate the MC server.",
                             ephemeral=True
                         )
                         return
                     
                     # Step 4: Notify the user of success
                     await interaction.followup.send(
-                        f"Backup `{os.path.join(BACKUP_PATH, selected_backup)}` restored successfully!\nServer should be booting now.",
+                        f"Backup `{os.path.join(cfg.config.minecraft.backup.path, selected_backup)}` restored successfully!\nServer should be booting now.",
                         ephemeral=True
                     )
                 except Exception as e:
@@ -232,7 +232,7 @@ class BackupCommands(app_commands.Group):
     @app_commands.describe(name="Optional custom name for the backup",)
     async def create_backup(self, interaction: discord.Interaction, name: str = "backup"):
         """Creates a new backup of the Minecraft server folder."""
-        if not os.path.exists(MC_SERVER_PATH):
+        if not os.path.exists(cfg.config.minecraft.server_path):
             await interaction.response.send_message("Minecraft server folder not found!", ephemeral=True)
             return
         

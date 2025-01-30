@@ -6,8 +6,8 @@ import subprocess
 import discord
 
 from discord import app_commands
-
-from config import *
+from utility.globals import *
+import config.config as cfg
 import utility.ops_helpers as ops_helpers
 
 # ──────────────────────────
@@ -52,26 +52,42 @@ def register_commands(bot):
 
 
             # Extract machine uptime
-            machine_uptime_cmd = subprocess.check_output(['uptime', '-p']).decode().strip()  # Example: "up 1 day, 11 hours, 59 minutes"
-            machine_uptime_match = re.search(r'up (\d+ days?)?,?\s?(\d+ hours?)?,?\s?(\d+ minutes?)?', machine_uptime_cmd)
+            machine_uptime_cmd = subprocess.check_output(['uptime', '-p']).decode().strip()  # "up 1 month, 1 week, 14 hours, 8 minutes"
 
-            # Initialize parts to empty strings
-            days = machine_uptime_match.group(1) if machine_uptime_match and machine_uptime_match.group(1) else ""
-            hours = machine_uptime_match.group(2) if machine_uptime_match and machine_uptime_match.group(2) else ""
-            minutes = machine_uptime_match.group(3) if machine_uptime_match and machine_uptime_match.group(3) else ""
+            # Regex to capture months, weeks, days, hours, and minutes
+            uptime_match = re.search(
+                r'up\s*(?:(\d+)\s*months?)?,?\s*'
+                r'(?:(\d+)\s*weeks?)?,?\s*'
+                r'(?:(\d+)\s*days?)?,?\s*'
+                r'(?:(\d+)\s*hours?)?,?\s*'
+                r'(?:(\d+)\s*minutes?)?', 
+                machine_uptime_cmd
+            )
+
+            # Extract values, default to 0 if missing
+            months = uptime_match.group(1) if uptime_match and uptime_match.group(1) else ""
+            weeks = uptime_match.group(2) if uptime_match and uptime_match.group(2) else ""
+            days = uptime_match.group(3) if uptime_match and uptime_match.group(3) else ""
+            hours = uptime_match.group(4) if uptime_match and uptime_match.group(4) else ""
+            minutes = uptime_match.group(5) if uptime_match and uptime_match.group(5) else ""
 
             # Combine parts into a human-readable format
-            formatted_uptime = " ".join(filter(None, [days.strip(), hours.strip(), minutes.strip()])).replace("  ", " ")
-
+            formatted_uptime = " ".join(filter(None, [
+                f"{months} months" if months else "",
+                f"{weeks} weeks" if weeks else "",
+                f"{days} days" if days else "",
+                f"{hours} hours" if hours else "",
+                f"{minutes} minutes" if minutes else ""
+            ]))
 
 
             # Extract total backup size
-            backup_size_cmd = subprocess.check_output(['du', BACKUP_PATH, '-sch']).decode()
+            backup_size_cmd = subprocess.check_output(['du', cfg.config.minecraft.backup.path, '-sch']).decode()
             backup_size_match = re.search(r'(\d+G)\s+total', backup_size_cmd)
             backup_size = backup_size_match.group(1) if backup_size_match else "Unknown"
 
             # Extract available disk space for the backup path
-            disk_space_cmd = subprocess.check_output(['df', BACKUP_PATH, '-h']).decode()
+            disk_space_cmd = subprocess.check_output(['df', cfg.config.minecraft.backup.path, '-h']).decode()
             disk_space_match = re.search(r'(\d+G)\s+\d+G\s+(\d+G)\s+\d+%', disk_space_cmd)
             available_space = disk_space_match.group(2) if disk_space_match else "Unknown"
 
@@ -112,14 +128,14 @@ def register_commands(bot):
 
             # Crash reports
             crashes_cmd = (
-                f"head -n 4 {CRASH_REPORTS_DIR}/* | grep -E 'Time: ' | awk '{{print $2 \" \" $3}}' | tail -n 10"
+                f"head -n 4 {cfg.config.minecraft.crash_reports_dir}/* | grep -E 'Time: ' | awk '{{print $2 \" \" $3}}' | tail -n 10"
             )
             crashes_times = subprocess.check_output([crashes_cmd], shell=True).decode() or "No crashes yet! <3"
 
-            latest_logs = subprocess.check_output(['tail', '-n', str(LATEST_LOG_LINES), LOG_FILE_PATH]).decode()
+            latest_logs = subprocess.check_output(['tail', '-n', str(10), cfg.config.minecraft.log_file_path]).decode()
 
             # Detect lag occurrences
-            with open(LOG_FILE_PATH, 'r') as log_file:
+            with open(cfg.config.minecraft.log_file_path, 'r') as log_file:
                 log_contents = log_file.read()
             lag_occurrences = len(re.findall(r'Running \d+ms or \d+ ticks behind', log_contents))
 
@@ -147,11 +163,11 @@ def register_commands(bot):
             )
 
             # Trim output if it exceeds 2000 characters
-            if len(output) > DISCORD_CHAR_LIMIT:
-                trimmed_length = len(output) - DISCORD_CHAR_LIMIT
+            if len(output) > cfg.config.bot.discord_char_limit:
+                trimmed_length = len(output) - cfg.config.bot.discord_char_limit
                 # Ensure the message ends properly with the closing backticks for the code block
                 truncation_message = "... (truncated)\n```"
-                output = output[:DISCORD_CHAR_LIMIT - len(truncation_message)] + truncation_message
+                output = output[:cfg.config.bot.discord_char_limit - len(truncation_message)] + truncation_message
                 print(f"Trimmed {trimmed_length} characters from the status message.")
             # If the message doesn't exceed the limit but still needs to end with a code block
             elif not output.endswith("```"):
@@ -184,20 +200,20 @@ def register_commands(bot):
 
             if action == "status":
                 # Fetch and display service status
-                status_message = await ops_helpers.async_service_status(SERVICE_NAME)
+                status_message = await ops_helpers.async_service_status(cfg.config.minecraft.service_name)
                 await interaction.followup.send(status_message, ephemeral=False)
             else:
                 # Authorization (whitelist)
-                if interaction.user.id not in ADMIN_USERS:
+                if interaction.user.id not in cfg.config.bot.admin_users:
                     await interaction.followup.send("Sorry, you are not authorized to use this command.", ephemeral=True)
                     return
 
                 # Perform stop, start, or restart
-                success_message = await ops_helpers.async_service_control(action, SERVICE_NAME)
+                success_message = await ops_helpers.async_service_control(action, cfg.config.minecraft.service_name)
                 await interaction.followup.send(success_message, ephemeral=False)
         except Exception as ex:
             await interaction.followup.send(
-                f"Error running **{action}** on `{SERVICE_NAME}`: {ex}",
+                f"Error running **{action}** on `{cfg.config.minecraft.service_name}`: {ex}",
                 ephemeral=True
             )
 
@@ -210,7 +226,7 @@ def register_commands(bot):
         The bot logs out before executing the reboot to indicate downtime.
         """
         # Check if the user is an admin
-        if interaction.user.id not in ADMIN_USERS:
+        if interaction.user.id not in cfg.config.bot.admin_users:
             await interaction.response.send_message(
                 "Sorry, you are not authorized to use this command.",
                 ephemeral=True
@@ -229,7 +245,7 @@ def register_commands(bot):
             # Stop the Minecraft service
             try:
                 subprocess.check_output(
-                    ["sudo", "systemctl", "stop", SERVICE_NAME],
+                    ["sudo", "systemctl", "stop", cfg.config.minecraft.service_name],
                     stderr=subprocess.STDOUT
                 )
             except subprocess.CalledProcessError as e:
