@@ -28,6 +28,8 @@ class BackupConfig:
     enabled: bool = True
     interval_min: int = 15
     path: str = "/var/mcbackup/"
+    delete_frequent_after_hours: int = 24
+    delete_sparse_after_days: int = 120
 
 @dataclass
 class MinecraftConfig:

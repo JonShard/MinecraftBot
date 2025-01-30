@@ -60,6 +60,87 @@ async def async_create_backup(prefix: str) -> str:
 
 
 
+def delete_old_backups_helper() -> int:
+    """
+    Deletes backups older than 120 days and removes backups from days older than 24 hours,
+    while keeping the one closest to 05:00 AM.
+    Returns:
+        int: Number of deleted backups.
+    """
+    BACKUP_DIR = cfg.config.minecraft.backup.path
+    TARGET_HOUR = 5  # 05:00 AM
+    TARGET_MINUTE = 0
+    deleted_count = 0
+
+    if not os.path.exists(BACKUP_DIR):
+        print(f"Backup directory does not exist: {BACKUP_DIR}")
+        return deleted_count
+
+    # List all backup files
+    all_backups = [
+        os.path.join(BACKUP_DIR, f) for f in os.listdir(BACKUP_DIR) if f.endswith(".tar.gz")
+    ]
+
+    backups_by_day = {}
+
+    for file in all_backups:
+        file_time = datetime.datetime.fromtimestamp(os.path.getmtime(file))
+        file_age_days = (datetime.datetime.now() - file_time).days
+        file_age_hours = (datetime.datetime.now() - file_time).total_seconds() / 3600
+
+        # Step 1: Delete backups older than 120 days
+        if file_age_days > cfg.config.minecraft.backup.delete_sparse_after_days:
+            os.remove(file)
+            deleted_count += 1
+            print(f"Deleted sparse backup: {file}")
+            continue  # Skip processing for these files
+
+        # Step 2: Group backups by day (ONLY IF older than 24 hours)
+        if file_age_hours > cfg.config.minecraft.backup.delete_frequent_after_hours:
+            day_key = file_time.date()
+            if day_key not in backups_by_day:
+                backups_by_day[day_key] = []
+            backups_by_day[day_key].append((file, file_time))
+
+    # Step 3: For each day, find and keep the backup closest to 05:00 AM
+    for day, backups in backups_by_day.items():
+        closest_backup = None
+        closest_time_diff = float('inf')
+
+        for file, file_time in backups:
+            # Calculate the absolute time difference from 05:00
+            target_time = datetime.datetime(file_time.year, file_time.month, file_time.day, TARGET_HOUR, TARGET_MINUTE)
+            time_diff = abs((file_time - target_time).total_seconds())
+
+            if time_diff < closest_time_diff:
+                closest_time_diff = time_diff
+                closest_backup = file
+
+        # Delete all backups from this day except the closest one
+        for file, _ in backups:
+            if file != closest_backup:
+                os.remove(file)
+                deleted_count += 1
+                print(f"Deleted frequent backup: {file}")
+
+    return deleted_count
+
+
+
+
+
+
+# Function to delete old backups in a separate thread. Returns number of deleted files.
+async def async_delete_old_backups() -> int:
+    """
+    Runs the delete_old_backups_helper function asynchronously using a thread pool.
+    Returns number of deleted files.
+    """
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(executor, delete_old_backups_helper)
+
+
+
 async def async_service_control(action: str, service_name: str) -> str:
     """
     Controls a systemd service asynchronously (stop, start, restart).

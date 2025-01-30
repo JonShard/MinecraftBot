@@ -19,6 +19,8 @@ minecraft:
     enabled: true
     interval_min: 15
     path: "/var/mcbackup/"
+    delete_frequent_after_hours: 24
+    delete_sparse_after_days: 120
   modpack_url: "https://www.curseforge.com/minecraft/modpacks/the-phoenix-den-pack"
   restart:
     enabled: true

@@ -145,3 +145,4 @@ async def backup_task():
         await ops_helpers.async_create_backup("backup")
     else:
         print("Backup task disabled, skipping.")
+    await ops_helpers.async_delete_old_backups()
