@@ -3,3 +3,6 @@ secrets.txt
 *.png
 
 *pycache*
+
+config.yaml
+config.yml

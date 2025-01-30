@@ -1,12 +1,9 @@
 bot:
-  bot_token: "MTA4MTg1Nzc5OTc5NDk4NzA0OQ.GY1gHU.Zr8kWU4WXIN_Yx2JAjr3M3J2NBjVw8XkO4noC8"
+  bot_token: ""
   discord_char_limit: 2000
   discord_dropdown_limit: 25
   admin_users:
-    - 257785837813497856 
-    - 209382762971398144
-    - 300930955579752448
-    - 191561233755799554
+    - 123123123123123123 
   presence:
     update_interval_sec: 3
   chat:
@@ -15,9 +12,9 @@ bot:
     lines: 10
 
 minecraft:
-  service_name: "phoenix.service"
+  service_name: "minecraft.service"
   service_path: "/etc/systemd/system"
-  server_path: "/mnt/SSD120GB/phonix/PhoenixDenPack2025"
+  server_path: "/usr/share/minecraft"
   backup:
     enabled: true
     interval_min: 15
