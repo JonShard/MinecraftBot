@@ -24,6 +24,7 @@ minecraft:
   modpack_url: "https://www.curseforge.com/minecraft/modpacks/the-phoenix-den-pack"
   restart:
     enabled: true
+    cold_backup_on_restart: True
     times:
       - "12:00"
       - "00:00"

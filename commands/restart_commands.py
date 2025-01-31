@@ -8,8 +8,15 @@ class DeleteButton(discord.ui.View):
         super().__init__(timeout=None)  # No timeout, stays active
         self.time = time
         
-    @discord.ui.button(label="🗑️",  style=discord.ButtonStyle.danger, custom_id="delete_button")
+    @discord.ui.button(label="🗑️(🔒)",  style=discord.ButtonStyle.danger, custom_id="delete_button")
     async def button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Check if the user is an admin
+        if interaction.user.id not in cfg.config.bot.admin_users:
+            await interaction.response.send_message(
+                "Sorry, you are not authorized to use this command.",
+                ephemeral=True
+            )
+            return
         error = cfg.config.minecraft.restart.remove_restart_time(self.time)
         if error == None:
             cfg.save_config()
@@ -32,9 +39,16 @@ class RestartCommands(app_commands.Group):
             await interaction.channel.send(f"# {time}", view=DeleteButton(time))
 
 
-    @app_commands.command(name="add", description="Add a new restart time. Ex: 05:00 or 23:00")
+    @app_commands.command(name="add", description="🔒 Add a new restart time. Ex: 05:00 or 23:00")
     async def restart_add(self, interaction: discord.Interaction, time: str):
-        
+        # Check if the user is an admin
+        if interaction.user.id not in cfg.config.bot.admin_users:
+            await interaction.response.send_message(
+                "Sorry, you are not authorized to use this command.",
+                ephemeral=True
+            )
+            return
+
         error = cfg.config.minecraft.restart.add_restart_time(time)
         if error == None:
             cfg.save_config()
@@ -45,7 +59,6 @@ class RestartCommands(app_commands.Group):
                 else:
                     response += f"• {t}\n"
             await interaction.response.send_message(response)
-                 
         else:
             await interaction.response.send_message(error, ephemeral=True)
 

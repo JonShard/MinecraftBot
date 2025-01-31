@@ -182,7 +182,8 @@ async def async_service_control(action: str, service_name: str) -> str:
     valid_actions = {"stop", "start", "restart"}
     if action not in valid_actions:
         raise ValueError(f"Invalid action '{action}'. Use one of {valid_actions}.")
-
+    print(f"{action} {service_name}")
+    
     process = await asyncio.create_subprocess_exec(
         "sudo", "systemctl", action, service_name,
         stdout=asyncio.subprocess.PIPE,

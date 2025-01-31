@@ -51,7 +51,7 @@ async def start_tasks():
     tasks.update_bot_presence_task.start(bot) # bot.loop.create_task(tasks.update_bot_presence_task(bot))
     tasks.player_count_logger_task.start() # Start the new CSV logger in the background
     tasks.backup_task.start()
-
+    tasks.restart_task.start()
 # ──────────────────────────
 # Bot Lifecycle
 # ──────────────────────────

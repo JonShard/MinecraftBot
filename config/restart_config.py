@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 @dataclass
 class RestartConfig:
     enabled: bool = True
+    cold_backup_on_restart : bool = True
     times: List[str] = field(default_factory=list)  # List of "HH:MM" strings
 
     def add_restart_time(self, time: str) -> str:
