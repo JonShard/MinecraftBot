@@ -13,7 +13,7 @@ class RestartConfig:
         Args:
             time (str): Time in "HH:MM" format.
         Returns:
-            str: Success message or error if invalid.
+            str: None on success or error if invalid.
         """
         if not self._validate_time_format(time):
             return f"Invalid time format: {time}. Use 'HH:MM'."
@@ -23,7 +23,7 @@ class RestartConfig:
 
         self.times.append(time)
         self.times.sort()  # Ensure times are ordered
-        return f"Time {time} added successfully."
+        return None
 
     def remove_restart_time(self, time: str) -> str:
         """
@@ -39,7 +39,7 @@ class RestartConfig:
             return f"Time {time} not found in the list."
 
         self.times.remove(time)
-        return f"Time {time} removed successfully."
+        return None
 
     def _validate_time_format(self, time: str) -> bool:
         """

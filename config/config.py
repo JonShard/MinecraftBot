@@ -51,7 +51,7 @@ async def load_config() -> bool:
     print("Finished loading config")
     return True
 
-def save_config(file_path: str):
+def save_config():
     global config
     """
     Save the Config dataclass to a YAML file.
@@ -59,7 +59,7 @@ def save_config(file_path: str):
         config (Config): The configuration to save.
         file_path (str): Path to the YAML file.
     """
-    with open(file_path, "w") as file:
+    with open(CONFIG_FILE, "w") as file:
         yaml.dump(
             {
                 "bot": {
