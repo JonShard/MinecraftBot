@@ -48,12 +48,39 @@ def create_world_backup_helper(prefix: str) -> str:
 
 
 
+async def wait_for_pretty_timestamp():
+    """
+    Waits asynchronously until the next 'pretty' timestamp based on the interval.
+    """
+    now = datetime.datetime.now()
+    current_minute = now.minute
+    current_hour = now.hour
+
+    remainder = current_minute % cfg.config.minecraft.backup.interval_min
+    if remainder == 0:
+        return  # No waiting needed
+
+    # Calculate next rounded time
+    next_minute = current_minute + (cfg.config.minecraft.backup.interval_min - remainder)
+    if next_minute >= 60:
+        next_minute -= 60
+        current_hour = (current_hour + 1) % 24  # Handle hour overflow
+
+    next_time = now.replace(hour=current_hour, minute=next_minute, second=0, microsecond=0)
+    wait_time = (next_time - now).total_seconds() - 15 # magic number, start a few sec early so backup is more likely to be pretty number
+
+    print(f"Waiting {int(wait_time // 60)} min {int(wait_time % 60)} sec until {next_time.strftime('%H:%M')}...")
+    await asyncio.sleep(wait_time)
+    
+
 # Function to run the backup in a separate thread
 async def async_create_backup(prefix: str) -> str:
     """
     Runs the create_backup function asynchronously using a thread pool.
     """
     loop = asyncio.get_running_loop()
+    
+    await wait_for_pretty_timestamp()
     return await loop.run_in_executor(executor, create_world_backup_helper, prefix)
 
 

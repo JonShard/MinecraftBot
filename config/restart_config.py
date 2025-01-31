@@ -10,10 +10,8 @@ class RestartConfig:
     def add_restart_time(self, time: str) -> str:
         """
         Adds a restart time to the list after validation.
-
         Args:
             time (str): Time in "HH:MM" format.
-
         Returns:
             str: Success message or error if invalid.
         """
