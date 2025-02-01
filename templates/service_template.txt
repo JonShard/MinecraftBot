@@ -1,0 +1,13 @@
+[Unit]
+Description=Minecraft Server
+
+[Service]
+ExecStart=<server_path>/run.sh
+WorkingDirectory=<server_path>
+User=root
+Restart=always
+RestartSec=120
+StartLimitBurst=15
+
+[Install]
+WantedBy=multi-user.target

@@ -19,8 +19,6 @@ async def load_config_early():
 # Run the config load early
 asyncio.run(load_config_early())
 
-
-
 # Create bot instance
 intents = discord.Intents.default()
 intents.message_content = False
@@ -52,16 +50,12 @@ async def start_tasks():
     tasks.player_count_logger_task.start() # Start the new CSV logger in the background
     tasks.backup_task.start()
     tasks.restart_task.start()
+    
 # ──────────────────────────
 # Bot Lifecycle
 # ──────────────────────────
 @bot.event
 async def on_ready():
-    # Load config.yaml 
-    # await cfg.load_config
-    # if cfg.config is None:
-    #     print("WARNING! Missing config.yaml file")
-    #     bot.close()
     try:
         print("Attempting to sync commands...")
         synced_commands = await bot.tree.sync()        

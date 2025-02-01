@@ -200,7 +200,7 @@ def register_commands(bot):
 
             if action == "status":
                 # Fetch and display service status
-                status_message = await ops_helpers.async_service_status(cfg.config.minecraft.service_name)
+                status_message = await ops_helpers.async_service_status()
                 await interaction.followup.send(status_message, ephemeral=False)
             else:
                 # Authorization (whitelist)
@@ -209,7 +209,7 @@ def register_commands(bot):
                     return
 
                 # Perform stop, start, or restart
-                success_message = await ops_helpers.async_service_control(action, cfg.config.minecraft.service_name)
+                success_message = await ops_helpers.async_service_control(action)
                 await interaction.followup.send(success_message, ephemeral=False)
         except Exception as ex:
             await interaction.followup.send(

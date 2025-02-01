@@ -1,7 +1,6 @@
 import re
 import asyncio
 import datetime
-from datetime import datetime
 import discord
 from discord.ext import tasks
 
@@ -151,11 +150,11 @@ async def backup_task():
 
 @tasks.loop(minutes=1)
 async def restart_task():
-    current_time = datetime.now().strftime("%H:%M") # Get current system time in HH:MM format, Ex: 22:33
+    current_time = datetime.datetime.now().strftime("%H:%M") # Get current system time in HH:MM format, Ex: 22:33
     for time in cfg.config.minecraft.restart.times:
         if current_time == time:
-            await ops_helpers.async_service_control("stop", cfg.config.minecraft.service_name)
+            await ops_helpers.async_service_control("stop")
             if cfg.config.minecraft.restart.cold_backup_on_restart:
                 await ops_helpers.async_create_backup("cold_backup")
-            await ops_helpers.async_service_control("start", cfg.config.minecraft.service_name)
+            await ops_helpers.async_service_control("start")
                 

@@ -155,7 +155,7 @@ class BackupCommands(app_commands.Group):
                         ephemeral=True
                     )
                     try:
-                        await ops_helpers.async_service_control("stop", cfg.config.minecraft.service_name)
+                        await ops_helpers.async_service_control("stop")
                     except Exception as ex:
                         await interaction.followup.send(
                             f"Error running **stop** on `{cfg.config.minecraft.service_name}`\nCan not restore backup to a running MC server",
@@ -194,7 +194,7 @@ class BackupCommands(app_commands.Group):
 
                     # Restart Minecraft server
                     try:
-                        await ops_helpers.async_service_control("start", cfg.config.minecraft.service_name)
+                        await ops_helpers.async_service_control("start")
                     except Exception as ex:
                         await interaction.followup.send(
                             f"Error running **start** on `{cfg.config.minecraft.service_name}`\nPlease investigate the MC server.",

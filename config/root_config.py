@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 import os
 
 from .restart_config import RestartConfig
@@ -33,12 +33,21 @@ class BackupConfig:
 
 @dataclass
 class MinecraftConfig:
-    service_name: str = "phoenix.service"
+    service_name: Optional[str] = None  # Private field, prevents direct access
     service_path: str = "/etc/systemd/system"
     server_path: str = "/mnt/SSD120GB/phonix/PhoenixDenPack2025"
     backup: BackupConfig = field(default_factory=BackupConfig)
     modpack_url: str = ""
     restart: RestartConfig = field(default_factory=RestartConfig)
+    
+    def __post_init__(self):
+        """ Ensure service_name falls back to the server_path name if empty or None and ends with .service. """
+        if not self.service_name or self.service_name.strip() == "":
+            self.service_name = os.path.basename(self.server_path)
+        # Ensure the service name always ends with ".service"
+        if self.service_name and not self.service_name.endswith(".service"):
+            self.service_name += ".service"
+        print(f"SERVICE NAME = {self.service_name }")
     
     # Derived paths as properties
     @property
@@ -52,6 +61,7 @@ class MinecraftConfig:
     @property
     def log_file_path(self) -> str:
         return os.path.join(self.logs_dir, "latest.log")
+    
 
 
 @dataclass

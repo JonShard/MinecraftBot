@@ -12,13 +12,11 @@ bot:
     lines: 10
 
 minecraft:
-  service_name: "minecraft.service"
-  service_path: "/etc/systemd/system"
   server_path: "/usr/share/minecraft"
   backup:
     enabled: true
-    interval_min: 15
     path: "/var/mcbackup/"
+    interval_min: 15
     delete_frequent_after_hours: 24
     delete_sparse_after_days: 120
   modpack_url: "https://www.curseforge.com/minecraft/modpacks/the-phoenix-den-pack"
@@ -28,6 +26,8 @@ minecraft:
     times:
       - "12:00"
       - "00:00"
+  service_name: "" # Leave empty to autopoplulate with MC server directory name
+  service_path: "/etc/systemd/system"
 
 stats:
   csv_interval_min: 5

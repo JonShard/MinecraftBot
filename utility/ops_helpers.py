@@ -6,6 +6,7 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 
 import utility.server_properties_helper as props_helper
+import utility.service_helpers as serv_helper
 
 import config.config as cfg
 
@@ -168,7 +169,7 @@ async def async_delete_old_backups() -> int:
 
 
 
-async def async_service_control(action: str, service_name: str) -> str:
+async def async_service_control(action: str) -> str:
     """
     Controls a systemd service asynchronously (stop, start, restart).
     Args:
@@ -182,6 +183,13 @@ async def async_service_control(action: str, service_name: str) -> str:
     valid_actions = {"stop", "start", "restart"}
     if action not in valid_actions:
         raise ValueError(f"Invalid action '{action}'. Use one of {valid_actions}.")
+    
+    await cfg.load_config()
+    
+    # Ensure the service file exist for systemd. Create from template if not exist.
+    await serv_helper.ensure_service_file()
+    service_name = cfg.config.minecraft.service_name
+
     print(f"{action} {service_name}")
     
     process = await asyncio.create_subprocess_exec(
@@ -197,7 +205,7 @@ async def async_service_control(action: str, service_name: str) -> str:
     return f"Server action **{action}** completed successfully on `{service_name}`."
 
 
-async def async_service_status(service_name: str) -> str:
+async def async_service_status() -> str:
     """
     Gets the status of a systemd service asynchronously.
     Args:
@@ -205,6 +213,10 @@ async def async_service_status(service_name: str) -> str:
     Returns:
         str: A trimmed status message, or a meaningful message if the service is inactive/stopped.
     """
+    # Ensure the service file exist for systemd. Create from template if not exist.
+    await serv_helper.ensure_service_file()
+    
+    service_name = cfg.config.minecraft.service_name
     process = await asyncio.create_subprocess_exec(
         "sudo", "systemctl", "status", service_name,
         stdout=asyncio.subprocess.PIPE,
