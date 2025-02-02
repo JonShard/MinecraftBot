@@ -5,7 +5,9 @@ import discord
 from discord.ext import tasks
 
 import config.config as cfg
-from utility.globals import chat_windows
+
+import utility.globals as globals
+
 import utility.rcon_helpers as rcon_helpers
 import utility.helper_functions as helpers
 import utility.ops_helpers as ops_helpers
@@ -15,7 +17,6 @@ import utility.ops_helpers as ops_helpers
 # ──────────────────────────
 @tasks.loop(seconds=cfg.config.bot.presence.update_interval_sec)
 async def update_bot_presence_task(bot):
-    global player_count, ext_chunk_count
     last_lag_timestamp = None  # Timestamp of the last detected lag from the log
     last_lag_ms = None  # Last lag value in milliseconds
     lag_display_duration = 300  # 5 minutes in seconds
@@ -33,15 +34,15 @@ async def update_bot_presence_task(bot):
             status_message = "Server is offline"
         else:
             # Update global player count
-            player_count = count
+            globals.player_count = count
 
             # Read the log file and check for external chunk saving or lag
             with open(cfg.config.minecraft.log_file_path, 'r') as log_file:
                 log_contents = log_file.read()
-            ext_chunk_count = len(re.findall(r'Saving oversized chunk', log_contents))
+            globals.ext_chunk_count = len(re.findall(r'Saving oversized chunk', log_contents))
 
-            if ext_chunk_count:
-                status_message = f"External chunks! ({ext_chunk_count})"
+            if globals.ext_chunk_count:
+                status_message = f"External chunks! ({globals.ext_chunk_count})"
             else:
                 lines = log_contents.splitlines()
                 latest_lag_line = None
@@ -67,19 +68,19 @@ async def update_bot_presence_task(bot):
                     time_since_lag = (datetime.datetime.now() - last_lag_timestamp).total_seconds()
                     if time_since_lag <= lag_display_duration:
                         status_message = (
-                            f"{player_count} players online ({last_lag_ms / 1000:.1f} sec behind, "
+                            f"{globals.player_count} players online ({last_lag_ms / 1000:.1f} sec behind, "
                             f"{int(lag_display_duration - time_since_lag)} seconds remaining)"
                         )
                     else:
                         # Lag display duration expired
                         last_lag_timestamp = None
                         last_lag_ms = None
-                        status_message = f"{player_count} players online"
+                        status_message = f"{globals.player_count} players online"
                 else:
                     # No lag detected in the latest logs
                     last_lag_timestamp = None
                     last_lag_ms = None
-                    status_message = f"{player_count} players online"
+                    status_message = f"{globals.player_count} players online"
 
     except Exception as e:
         print(f"Error updating status: {e}")
@@ -109,10 +110,10 @@ async def background_chat_update_task(channel_id: int):
     while True:
         await asyncio.sleep(cfg.config.bot.chat.update_interval_sec)
         # If the window is missing or removed from dict, stop
-        if channel_id not in chat_windows:
+        if channel_id not in globals.chat_windows:
             return
         
-        data = chat_windows[channel_id]
+        data = globals.chat_windows[channel_id]
         now = asyncio.get_event_loop().time()
 
         # Time up?
@@ -122,7 +123,7 @@ async def background_chat_update_task(channel_id: int):
                 await data["message"].delete()
             except Exception as e:
                 print(f"Failed to delete expired chat window in channel {channel_id}: {e}")
-            del chat_windows[channel_id]
+            del globals.chat_windows[channel_id]
             print(f"Chat window in channel {channel_id} expired.")
             return
 
@@ -135,7 +136,7 @@ async def background_chat_update_task(channel_id: int):
         except Exception as e:
             print(f"Failed to edit chat window in channel {channel_id}: {e}")
             # Remove and stop
-            del chat_windows[channel_id]
+            del globals.chat_windows[channel_id]
             return
 
 

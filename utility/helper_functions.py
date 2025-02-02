@@ -12,21 +12,21 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 
 import config.config as cfg
-from utility.globals import *
+import utility.globals as globals
+
 import utility.background_tasks as tasks
 
 def update_csv_player_count():
         # Attempt to get the latest player count from your global or via RCON
         # (Here we assume you already update 'player_count' in update_server_status,
         #  so we just read that global variable.)
-        global player_count
 
         # If player_count is None or invalid, you could skip or set it to 0
-        if player_count is None:
+        if globals.player_count is None:
             count_to_log = 0
             print("Warning. Playercound is None")
         else:
-            count_to_log = player_count
+            count_to_log = globals.player_count
 
         # Prepare CSV row data
         # Example: 2025-01-19 20:45, 5
@@ -167,8 +167,8 @@ async def post_or_refresh_chat_window(bot, channel: discord.abc.Messageable):
     channel_id = channel.id
 
     # 1) Clear out old window if it exists
-    if channel_id in chat_windows:
-        old_data = chat_windows[channel_id]
+    if channel_id in globals.chat_windows:
+        old_data = globals.chat_windows[channel_id]
         try:
             await old_data["message"].delete()
         except Exception as e:
@@ -177,7 +177,7 @@ async def post_or_refresh_chat_window(bot, channel: discord.abc.Messageable):
         # Stop the old task
         if old_data["task"]:
             old_data["task"].cancel()
-        del chat_windows[channel_id]
+        del globals.chat_windows[channel_id]
 
     # 2) Create a new message
     lines = get_recent_chat_lines(cfg.config.bot.chat.lines)
@@ -190,7 +190,7 @@ async def post_or_refresh_chat_window(bot, channel: discord.abc.Messageable):
     expires_at = asyncio.get_event_loop().time() + cfg.config.bot.chat.duration_min * 60 # 60 sec in a minute
     task = bot.loop.create_task(tasks.background_chat_update_task(channel_id))
 
-    chat_windows[channel_id] = {
+    globals.chat_windows[channel_id] = {
         "message": new_msg,
         "expires_at": expires_at,
         "task": task
@@ -293,9 +293,9 @@ def get_recent_chat_lines(limit=10):
 async def repost_chat_window(interaction):
         # "Move" the chat window if it exists in this channel
         channel_id = interaction.channel.id
-        if channel_id in chat_windows:
+        if channel_id in globals.chat_windows:
             # Extend the timer (reset 5-minute countdown)
-            chat_windows[channel_id]["expires_at"] = asyncio.get_event_loop().time() + cfg.config.bot.chat.duration_min * 60 # 60 sec in a minute
+            globals.chat_windows[channel_id]["expires_at"] = asyncio.get_event_loop().time() + cfg.config.bot.chat.duration_min * 60 # 60 sec in a minute
             # Delete and repost to put it at the bottom
             await post_or_refresh_chat_window(interaction.channel)
             print(f"Chat window moved to bottom after /say in channel {channel_id}.")
