@@ -9,20 +9,6 @@ import config.config as cfg
 import utility.helper_functions as helpers
 
 def register_commands(bot):
-    @bot.tree.command(name="chat", description="Show a single chat window for the last 10 lines.")
-    async def slash_chat(interaction: discord.Interaction):
-        """
-        Creates (or recreates) one chat window in this channel (DM or text).
-        Keeps refreshing for 5 minutes.
-        """
-        # Acknowledge command
-        await interaction.response.defer(ephemeral=False, thinking=True)
-        # Post/refresh
-        await helpers.post_or_refresh_chat_window(bot, interaction.channel)
-        # Let user know
-        await interaction.followup.send("Chat window created or refreshed for this channel.", ephemeral=False)
-
-
     @bot.tree.command(name="modpack", description="Provides the modpack download link and server's public IP.")
     async def slash_modpack(interaction: discord.Interaction):
         """

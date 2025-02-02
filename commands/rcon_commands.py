@@ -11,13 +11,14 @@ import utility.helper_functions as helpers
 import utility.rcon_helpers as rcon_helpers
 
 
-# ──────────────────────────
-# Slash Commands
-# ──────────────────────────
-def register_commands(bot):
+# Create a command group for /backup
+class RconCommands(app_commands.Group):
+    def __init__(self):
+        super().__init__(name="rcon", description="Communicate / interact with the MC server")
 
-    @bot.tree.command(name="players", description="Show who is online, who has joined today and how many joined yesterday.")
-    async def slash_players(interaction: discord.Interaction):
+
+    @app_commands.command(name="players", description="Show who is online, who has joined today and how many joined yesterday.")
+    async def slash_players(self, interaction: discord.Interaction):
         """
         1) Counts how many players joined yesterday, how many are online now, and how many joined today.
         2) Displays that info at the top in plain text.
@@ -143,10 +144,24 @@ def register_commands(bot):
 
 
 
+    @app_commands.command(name="chat", description="Show a single chat window for the last 10 lines.")
+    async def slash_chat(self, interaction: discord.Interaction):
+        """
+        Creates (or recreates) one chat window in this channel (DM or text).
+        Keeps refreshing for 5 minutes.
+        """
+        # Acknowledge command
+        await interaction.response.defer(ephemeral=False, thinking=True)
+        # Post/refresh
+        await helpers.post_or_refresh_chat_window(self.bot, interaction.channel)
+        # Let user know
+        await interaction.followup.send("Chat window created or refreshed for this channel.", ephemeral=False)
 
-    @bot.tree.command(name="say", description="Send a chat message to the server from Discord.")
+
+
+    @app_commands.command(name="say", description="Send a chat message to the server from Discord.")
     @app_commands.describe(message="The message to send")
-    async def slash_say(interaction: discord.Interaction, message: str):
+    async def slash_say(self, interaction: discord.Interaction, message: str):
         """
         Send /say to the server with a color-coded prefix,
         then move the chat window to the bottom if it exists in this channel.
@@ -174,7 +189,7 @@ def register_commands(bot):
 
 
 
-    @bot.tree.command(name="weather", description="Set the weather in the Minecraft world.")
+    @app_commands.command(name="weather", description="Set the weather in the Minecraft world.")
     @app_commands.describe(
         weather_type="Choose the type of weather to set.",
         duration_minutes="Optional duration in minutes for the weather to last."
@@ -184,7 +199,7 @@ def register_commands(bot):
         discord.app_commands.Choice(name="Rain", value="rain"),
         discord.app_commands.Choice(name="Thunder", value="thunder"),
     ])
-    async def slash_weather(interaction: discord.Interaction, weather_type: str, duration_minutes: int = None):
+    async def slash_weather(self, interaction: discord.Interaction, weather_type: str, duration_minutes: int = None):
         """
         Sets the weather in the Minecraft world with input validation for duration_minutes and weather-specific emojis.
         """
@@ -258,7 +273,7 @@ def register_commands(bot):
 
 
 
-    @bot.tree.command(name="kill", description="🔒 Kill specific types of entities in the Minecraft world.")
+    @app_commands.command(name="kill", description="🔒 Kill specific types of entities in the Minecraft world.")
     @app_commands.describe(target="What to kill (items, vanilla_animals, vanilla_monsters, vanilla_villagers).")
     @app_commands.choices(target=[
         discord.app_commands.Choice(name="items", value="items"),
@@ -266,7 +281,7 @@ def register_commands(bot):
         discord.app_commands.Choice(name="vanilla_monsters", value="vanilla_monsters"),
         discord.app_commands.Choice(name="vanilla_villagers", value="vanilla_villagers"),
     ])
-    async def slash_kill(interaction: discord.Interaction, target: str):
+    async def slash_kill(self, interaction: discord.Interaction, target: str):
         """
         Kills specific types of entities in the Minecraft world based on the selected target.
         - items: Kills all dropped items.
@@ -345,9 +360,9 @@ def register_commands(bot):
 
 
 
-    @bot.tree.command(name="command", description="🔒Execute an RCON command on the server")
+    @app_commands.command(name="command", description="🔒Execute an RCON command on the server")
     @app_commands.describe(rcon_command="The RCON command to run on the server.")
-    async def slash_rcon_command(interaction: discord.Interaction, rcon_command: str):
+    async def slash_rcon_command(self, interaction: discord.Interaction, rcon_command: str):
         """Runs an RCON command if the user is on the ADMIN_USERS whitelist."""
         if interaction.user.id not in cfg.config.bot.admin_users:
             await interaction.response.send_message("Sorry, you are not authorized to use this command.", ephemeral=True)
@@ -368,3 +383,6 @@ def register_commands(bot):
             rcon_helpers.close_rcon_connection()
             await interaction.response.send_message(f"RCON command failed: {e}", ephemeral=True)
 
+
+def register_commands(bot):
+    bot.tree.add_command(RconCommands())
