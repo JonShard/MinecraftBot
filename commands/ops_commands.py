@@ -10,6 +10,7 @@ from discord import app_commands
 from discord import ui
 from utility.globals import *
 import config.config as cfg
+import utility.helper_functions as helpers
 import utility.ops_helpers as ops_helpers
 import utility.server_properties_helper as props_helper
 
@@ -206,10 +207,9 @@ def register_commands(bot):
                 status_message = await ops_helpers.async_service_status()
                 await interaction.followup.send(status_message, ephemeral=False)
             else:
-                # Authorization (whitelist)
-                if interaction.user.id not in cfg.config.bot.admin_users:
-                    await interaction.followup.send("⛔ Sorry, you are not authorized to use this command.", ephemeral=True)
-                    return
+                if not await helpers.authorize_interaction(interaction):
+                    return  # Stop execution if the user is not authorized
+
 
                 # Perform stop, start, or restart
                 success_message = await ops_helpers.async_service_control(action)
@@ -228,13 +228,9 @@ def register_commands(bot):
         Reboots the server by running 'sudo reboot'. Admin-only command.
         The bot logs out before executing the reboot to indicate downtime.
         """
-        # Check if the user is an admin
-        if interaction.user.id not in cfg.config.bot.admin_users:
-            await interaction.response.send_message(
-                "⛔ Sorry, you are not authorized to use this command.",
-                ephemeral=True
-            )
-            return
+        if not await helpers.authorize_interaction(interaction):
+            return  # Stop execution if the user is not authorized
+
 
         await interaction.response.defer(ephemeral=False, thinking=True)
 
@@ -344,9 +340,9 @@ def register_commands(bot):
         Slash command to wipe the Minecraft world.
         """
         # Check if the user is an admin
-        if interaction.user.id not in cfg.config.bot.admin_users:
-            await interaction.response.send_message("⛔ Sorry, you are not authorized to use this command.", ephemeral=True)
-            return
+        if not await helpers.authorize_interaction(interaction):
+            return  # Stop execution if the user is not authorized
+
 
         # Show the confirmation modal
         await interaction.response.send_modal(WipeConfirmationModal())

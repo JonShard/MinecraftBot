@@ -1,7 +1,7 @@
 from discord import app_commands
 import discord
 import config.config as cfg
-
+import utility.helper_functions as helpers
 
 class DeleteButton(discord.ui.View):
     def __init__(self, time : str):
@@ -10,13 +10,9 @@ class DeleteButton(discord.ui.View):
         
     @discord.ui.button(label="🗑️(🔒)",  style=discord.ButtonStyle.danger, custom_id="delete_button")
     async def button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Check if the user is an admin
-        if interaction.user.id not in cfg.config.bot.admin_users:
-            await interaction.response.send_message(
-                "⛔ Sorry, you are not authorized to use this command.",
-                ephemeral=True
-            )
-            return
+        if not await helpers.authorize_interaction(interaction):
+            return  # Stop execution if the user is not authorized
+
         error = cfg.config.minecraft.restart.remove_restart_time(self.time)
         if error == None:
             cfg.save_config()
@@ -41,13 +37,9 @@ class RestartCommands(app_commands.Group):
 
     @app_commands.command(name="add", description="🔒 Add a new restart time. Ex: 05:00 or 23:00")
     async def restart_add(self, interaction: discord.Interaction, time: str):
-        # Check if the user is an admin
-        if interaction.user.id not in cfg.config.bot.admin_users:
-            await interaction.response.send_message(
-                "⛔ Sorry, you are not authorized to use this command.",
-                ephemeral=True
-            )
-            return
+        if not await helpers.authorize_interaction(interaction):
+            return  # Stop execution if the user is not authorized
+
 
         error = cfg.config.minecraft.restart.add_restart_time(time)
         if error == None:
