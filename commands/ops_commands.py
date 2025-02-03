@@ -1,4 +1,5 @@
-
+import os
+import shutil
 import re
 import time
 import subprocess
@@ -6,9 +7,11 @@ import subprocess
 import discord
 
 from discord import app_commands
+from discord import ui
 from utility.globals import *
 import config.config as cfg
 import utility.ops_helpers as ops_helpers
+import utility.server_properties_helper as props_helper
 
 # ──────────────────────────
 # Slash Commands
@@ -205,7 +208,7 @@ def register_commands(bot):
             else:
                 # Authorization (whitelist)
                 if interaction.user.id not in cfg.config.bot.admin_users:
-                    await interaction.followup.send("Sorry, you are not authorized to use this command.", ephemeral=True)
+                    await interaction.followup.send("⛔ Sorry, you are not authorized to use this command.", ephemeral=True)
                     return
 
                 # Perform stop, start, or restart
@@ -228,7 +231,7 @@ def register_commands(bot):
         # Check if the user is an admin
         if interaction.user.id not in cfg.config.bot.admin_users:
             await interaction.response.send_message(
-                "Sorry, you are not authorized to use this command.",
+                "⛔ Sorry, you are not authorized to use this command.",
                 ephemeral=True
             )
             return
@@ -282,3 +285,68 @@ def register_commands(bot):
                 )
             except discord.errors.ClientException:
                 print(f"Failed to send unexpected error message: {e}")
+
+
+
+    class WipeConfirmationModal(ui.Modal, title="Confirm World Wipe"):
+        def __init__(self):
+            super().__init__()
+
+        # Confirmation field (to type "YES" for confirmation)
+        confirmation = ui.TextInput(
+            label="Type 'YES' to confirm",
+            placeholder="Type 'YES' to confirm wiping the world",
+            style=discord.TextStyle.short,
+            required=True,
+            max_length=3
+        )
+
+        async def on_submit(self, interaction: discord.Interaction):
+            # Check if the confirmation input matches "YES"
+            if self.confirmation.value.strip().upper() == "YES":
+                await interaction.response.defer(thinking=True)
+
+                # Get the world name from server.properties
+                world_name = props_helper.get_server_property(
+                    props_helper.ServerProperties.LEVEL_NAME, cfg.config.minecraft.server_path
+                )
+                world_path = os.path.join(cfg.config.minecraft.server_path, world_name)
+
+                was_running = await ops_helpers.is_service_running()
+    
+                # Check if the server is running
+                if was_running:
+                    # Stop the server
+                    await interaction.followup.send("Stopping the server...", ephemeral=True)
+                    await ops_helpers.async_service_control("stop")
+
+                # Delete the world directory
+                if os.path.exists(world_path):
+                    try:
+                        shutil.rmtree(world_path)
+                        await interaction.followup.send(f"World `{world_name}` has been wiped successfully.", ephemeral=False)
+                    except Exception as e:
+                        await interaction.followup.send(f"Failed to wipe the world: {e}", ephemeral=True)
+                        return
+
+                # Restart the server if it was running
+                if was_running:
+                    await interaction.followup.send("Restarting the server...", ephemeral=True)
+                    await ops_helpers.async_service_control("start")
+
+            else:
+                await interaction.response.send_message("Wipe canceled. Incorrect confirmation input.", ephemeral=True)
+
+
+    @bot.tree.command(name="wipe", description="🔒 Delete the world. (Confirm Yes/No)")
+    async def slash_wipe(interaction: discord.Interaction):
+        """
+        Slash command to wipe the Minecraft world.
+        """
+        # Check if the user is an admin
+        if interaction.user.id not in cfg.config.bot.admin_users:
+            await interaction.response.send_message("⛔ Sorry, you are not authorized to use this command.", ephemeral=True)
+            return
+
+        # Show the confirmation modal
+        await interaction.response.send_modal(WipeConfirmationModal())

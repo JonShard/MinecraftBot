@@ -92,7 +92,7 @@ class BackupCommands(app_commands.Group):
         """Restores a backup by showing a dropdown of available backups."""
         # Authorization (whitelist)
         if interaction.user.id not in cfg.config.bot.admin_users:
-            await interaction.response.send_message("Sorry, you are not authorized to use this command.", ephemeral=True)
+            await interaction.response.send_message("⛔ Sorry, you are not authorized to use this command.", ephemeral=True)
             return     
         # Parse the before_date or use the current timestamp
         try:
@@ -169,12 +169,16 @@ class BackupCommands(app_commands.Group):
                     )
                     
                     # Step 2: Create the restore point asynchronously
-                    restore_point = await ops_helpers.async_create_backup("restore_point")
-
-                    await interaction.followup.send(
-                        f"Restore point created at `{restore_point}`\nRestoring selected backup...",
-                        ephemeral=True
+                    restore_point = await ops_helpers.async_create_backup("restore_point", True)
+                    if restore_point == "":
+                        await interaction.followup.send(
+                            "World folder did not exist. No restore point was made.", ephemeral=True
                     )
+                    else:
+                        await interaction.followup.send(
+                            f"Restore point created at `{restore_point}`\nRestoring selected backup...",
+                            ephemeral=True
+                        )
                     
                     # Step 3: Replace the Minecraft world folder within the server path
                     world_name = props_helper.get_server_property(props_helper.ServerProperties.LEVEL_NAME, cfg.config.minecraft.server_path)  # Get the world folder name

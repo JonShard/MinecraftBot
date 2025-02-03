@@ -293,7 +293,7 @@ class RconCommands(app_commands.Group):
 
         # Authorization (whitelist)
         if interaction.user.id not in cfg.config.bot.admin_users:
-            await interaction.response.send_message("Sorry, you are not authorized to use this command.", ephemeral=True)
+            await interaction.response.send_message("⛔ Sorry, you are not authorized to use this command.", ephemeral=True)
             return  
 
         rcon_helpers.ensure_rcon_connection()
@@ -365,7 +365,7 @@ class RconCommands(app_commands.Group):
     async def slash_rcon_command(self, interaction: discord.Interaction, rcon_command: str):
         """Runs an RCON command if the user is on the ADMIN_USERS whitelist."""
         if interaction.user.id not in cfg.config.bot.admin_users:
-            await interaction.response.send_message("Sorry, you are not authorized to use this command.", ephemeral=True)
+            await interaction.response.send_message("⛔ Sorry, you are not authorized to use this command.", ephemeral=True)
             return
 
         rcon_helpers.ensure_rcon_connection()

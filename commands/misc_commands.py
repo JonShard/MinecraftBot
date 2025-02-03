@@ -3,10 +3,12 @@ import os
 import requests
 
 import discord
+from discord.embeds import Embed
 
 
 import config.config as cfg
-import utility.helper_functions as helpers
+import commands.ops_commands as ops_com
+
 
 def register_commands(bot):
     @bot.tree.command(name="modpack", description="Provides the modpack download link and server's public IP.")
@@ -63,3 +65,52 @@ def register_commands(bot):
                 f"**Modpack:** {cfg.config.minecraft.modpack_url}"
             )
         )
+
+    class QuickMenu(discord.ui.View):
+        def __init__(self, time : str):
+            super().__init__(timeout=None)  # No timeout, stays active
+            
+        @discord.ui.button(label="/status",  style=discord.ButtonStyle.danger, custom_id="delete_button")
+        async def button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+            ops_com.register_commands
+
+    @bot.tree.command(name="help", description="Show all available commands grouped by category.")
+    async def slash_help(interaction: discord.Interaction):
+        """
+        Show all available commands grouped by category.
+        """
+        response = (
+            "## **Minecraft Bot Commands**\n"
+            "Commands with a 🔒 can only be used by whitelisted admins\n"
+            
+            "### **Modpack Commands**\n"
+            "- 📥  **/modpack**: Provides the modpack download link and server's public IP.\n\n"
+            
+            "### 🧑‍🤝‍🧑 **Player & Chat Commands**\n"
+            "- 👥📊  **/rcon players**: Show who is online, who has joined today, and how many joined yesterday.\n"
+            "- 💬📃  **/rcon chat**: Show a single chat window for the last 10 lines.\n"
+            "- 💬🗣️  **/rcon say**: Send a chat message to the server from Discord.\n\n"
+
+            "### 🖥️ **Minecraft Server Admin**\n"
+            "- ☀️⛈️  **/rcon weather**: Set the weather in the Minecraft world.\n"
+            "- 🔪🩸  **/rcon kill** 🔒: Kill specific types of entities in the Minecraft world.\n"
+            "- ⚙️🪄  **/rcon command** 🔒: Execute an RCON command on the server.\n\n"
+
+            "### 🕘 **Automatic Restarts**\n"
+            "- 🕘🖊️  **/restart add** 🔒: Add a new restart time. Ex: 05:00 or 23:00.\n"
+            "- 🕘📜  **/restart list** 🔒: Manage all restart times. Remove a time.\n\n"
+
+            "### 💾 **Backups & Restores**\n"
+            "- 💾📁  **/backup list**: List all backups.\n"
+            "- 💾⬇️  **/backup now**: Create a new backup.\n"
+            "- 💾🔄  **/backup restore** 🔒: Restore a backup.\n\n"
+
+            "### 🛠️ **Utility Commands**\n"
+            "- 📈📊  **/status**: Show the Minecraft server status.\n"
+            "- 🎛️🎚️  **/server**: Control or check the MC server instance (stop, start, restart, status).\n"
+            "- 🖥️🔌  **/reboot** 🔒: Reboot the physical machine.\n"
+            "- 🗺️🗑️  **/wipe** 🔒: Delete the world. (Confirm Yes/No)\n\n"
+            
+            "*Check the bot's source code here: [GitHub](https://github.com/JonShard/MinecraftBot)*"
+        )
+        await interaction.response.send_message(response)

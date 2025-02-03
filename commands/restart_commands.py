@@ -13,7 +13,7 @@ class DeleteButton(discord.ui.View):
         # Check if the user is an admin
         if interaction.user.id not in cfg.config.bot.admin_users:
             await interaction.response.send_message(
-                "Sorry, you are not authorized to use this command.",
+                "⛔ Sorry, you are not authorized to use this command.",
                 ephemeral=True
             )
             return
@@ -44,7 +44,7 @@ class RestartCommands(app_commands.Group):
         # Check if the user is an admin
         if interaction.user.id not in cfg.config.bot.admin_users:
             await interaction.response.send_message(
-                "Sorry, you are not authorized to use this command.",
+                "⛔ Sorry, you are not authorized to use this command.",
                 ephemeral=True
             )
             return

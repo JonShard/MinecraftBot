@@ -33,8 +33,9 @@ def create_world_backup_helper(prefix: str) -> str:
     
     world_path = os.path.join(cfg.config.minecraft.server_path, world_name)
     if not os.path.exists(world_path):
-        raise FileNotFoundError(f"World folder '{world_name}' does not exist at {world_path}.")
-
+        print(f"Backup failed: World folder '{world_name}' does not exist at {world_path}.")
+        return ""
+    
     # Create a timestamped backup name
     timestamp = datetime.datetime.now().strftime("%Y-%m-%dT%H-%M")
     backup_name = f"{prefix}_{timestamp}.tar.gz"
@@ -75,13 +76,13 @@ async def wait_for_pretty_timestamp():
     
 
 # Function to run the backup in a separate thread
-async def async_create_backup(prefix: str) -> str:
+async def async_create_backup(prefix: str, skip_wait: bool = False) -> str:
     """
     Runs the create_backup function asynchronously using a thread pool.
     """
     loop = asyncio.get_running_loop()
-    
-    await wait_for_pretty_timestamp()
+    if not skip_wait:
+        await wait_for_pretty_timestamp()
     return await loop.run_in_executor(executor, create_world_backup_helper, prefix)
 
 
@@ -215,7 +216,8 @@ async def async_service_status() -> str:
     """
     # Ensure the service file exist for systemd. Create from template if not exist.
     await serv_helper.ensure_service_file()
-    
+    await cfg.load_config()
+
     service_name = cfg.config.minecraft.service_name
     process = await asyncio.create_subprocess_exec(
         "sudo", "systemctl", "status", service_name,
@@ -241,3 +243,37 @@ async def async_service_status() -> str:
         trimmed_output = trimmed_output[:1900] + "\n... (truncated) ..."
 
     return f"**Status for** `{service_name}`:\n```\n{trimmed_output}\n```"
+
+
+
+async def is_service_running() -> bool:
+    """
+    Checks if the Minecraft server service is currently running.
+    
+    Returns:
+        bool: True if the service is running, False otherwise.
+    """
+    # Ensure the service file exists
+    await serv_helper.ensure_service_file()
+    
+    service_name = cfg.config.minecraft.service_name
+
+    # Use `systemctl is-active` to check the service status
+    process = await asyncio.create_subprocess_exec(
+        "sudo", "systemctl", "is-active", service_name,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE
+    )
+    stdout, stderr = await process.communicate()
+
+    # Decode the output
+    status_output = stdout.decode(errors="ignore").strip()
+    error_output = stderr.decode(errors="ignore").strip()
+
+    if process.returncode == 0 and status_output == "active":
+        return True
+    elif process.returncode != 0:
+        # Log or print an error message for debugging if necessary
+        if error_output:
+            print(f"Error checking service status: {error_output}")
+    return False
