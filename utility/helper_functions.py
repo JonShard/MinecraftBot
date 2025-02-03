@@ -61,8 +61,7 @@ def generate_player_count_graph():
     Reads the CSV (Timestamp, PlayerCount), groups by day to calculate daily max,
     and plots a column chart (bar chart) saved to PLAYER_COUNT_PNG with a dark theme.
     """
-    import datetime
-
+    
     daily_counts = {}
 
     # 1) Read the CSV data
@@ -366,3 +365,61 @@ def sanitize_string(name: str, replace_whitespace: bool = True, to_lowercase: bo
     sanitized = name.replace("\n", "").replace("\r", "")
     
     return sanitized
+
+
+def validate_timestamp(before_date: str) -> datetime:
+    """
+    Validates and parses a timestamp string into a datetime object.
+
+    Supported formats:
+    - HH:MM
+    - H:MM (adds leading 0 if missing)
+    - DD-MM
+    - HH:MM DD-MM
+    - H:MM DD-MM (adds leading 0 if missing)
+    - DD-MM-YYYY
+
+    Args:
+        before_date (str): The input string to validate and parse.
+
+    Returns:
+        datetime: The parsed timestamp.
+
+    Raises:
+        ValueError: If the format is invalid or the date is in the future.
+    """
+    now = datetime.datetime.now()
+
+    if before_date:
+        # Add leading zero to hour if missing
+        before_date = re.sub(r"(^|\s)(\d):", r"\g<1>0\g<2>:", before_date)
+
+        # Handle HH:MM format
+        if re.match(r"^\d{2}:\d{2}$", before_date):
+            time_part = datetime.datetime.strptime(before_date, "%H:%M").time()
+            timestamp = datetime.datetime.combine(now.date(), time_part)
+
+        # Handle DD-MM format
+        elif re.match(r"^\d{2}-\d{2}$", before_date):
+            timestamp = datetime.datetime.strptime(before_date, "%d-%m").replace(year=now.year)
+
+        # Handle HH:MM DD-MM format
+        elif re.match(r"^\d{2}:\d{2} \d{2}-\d{2}$", before_date):
+            time_str, date_str = before_date.split(" ")
+            time_part = datetime.datetime.strptime(time_str, "%H:%M").time()
+            date_part = datetime.datetime.strptime(date_str, "%d-%m").replace(year=now.year)
+            timestamp = datetime.datetime.combine(date_part, time_part)
+
+        # Handle DD-MM-YYYY format
+        elif re.match(r"^\d{2}-\d{2}-\d{4}$", before_date):
+            timestamp = datetime.datetime.strptime(before_date, "%d-%m-%Y")
+
+        else:
+            raise ValueError("Invalid format")
+
+        # Ensure the timestamp is not in the future
+        if timestamp > now:
+            raise ValueError("Specified time cannot be in the future.")
+
+        return timestamp
+    return now

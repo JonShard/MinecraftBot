@@ -23,24 +23,18 @@ class BackupCommands(app_commands.Group):
         super().__init__(name="backup", description="Manage world backups.")
 
     @app_commands.command(name="list", description="List all backups.")
-    @app_commands.describe(before_date="Optional: Show backups before this date (format DD-MM or DD-MM-YYYY). Ex: 23-01 or 23-01-2025")
+    @app_commands.describe(before_date="Optional: Show backups before this date (format 'HH:MM' or 'HH:MM DD-MM' or 'DD-MM-YYYY'). Ex: '20:30' or 05-01-2025")
     async def backup_list(self, interaction: discord.Interaction, before_date: str = None):
         """Lists all `.tar.gz` archives in the backup folder with size, timestamp, and name."""
         if not os.path.exists(cfg.config.minecraft.backup.path):
             await interaction.response.send_message("Backup folder does not exist!", ephemeral=True)
             return
 
-        # Parse the before_date or use the current timestamp
+        # Validate and parse the timestamp
         try:
-            if before_date:
-                if len(before_date.split("-")) == 2:  # DD-MM format
-                    timestamp = datetime.datetime.strptime(before_date, "%d-%m").replace(year=datetime.datetime.now().year)
-                else:  # DD-MM-YYYY format
-                    timestamp = datetime.datetime.strptime(before_date, "%d-%m-%Y")
-            else:
-                timestamp = datetime.datetime.now()
-        except ValueError:
-            await interaction.response.send_message("Invalid date format. Use DD-MM or DD-MM-YYYY.", ephemeral=True)
+            timestamp = helpers.validate_timestamp(before_date)
+        except ValueError as e:
+            await interaction.response.send_message(f"Invalid date format. Use HH:MM, DD-MM, HH:MM DD-MM, or DD-MM-YYYY.\nError: {e}", ephemeral=True)
             return
 
         # Gather backups and sort by timestamp
@@ -87,24 +81,18 @@ class BackupCommands(app_commands.Group):
 
 
     @app_commands.command(name="restore", description="🔒 Restore a backup.")
-    @app_commands.describe(before_date="Optional: Show backups before this date (format DD-MM or DD-MM-YYYY).")
+    @app_commands.describe(before_date="Optional: Show backups before this date (format 'HH:MM' or 'HH:MM DD-MM' or 'DD-MM-YYYY'). Ex: '20:30' or 05-01-2025")
     async def restore_backup(self, interaction: discord.Interaction, before_date: str = None):
         """Restores a backup by showing a dropdown of available backups."""
         # Authorization (whitelist)
         if interaction.user.id not in cfg.config.bot.admin_users:
             await interaction.response.send_message("⛔ Sorry, you are not authorized to use this command.", ephemeral=True)
             return     
-        # Parse the before_date or use the current timestamp
+        # Validate and parse the timestamp
         try:
-            if before_date:
-                if len(before_date.split("-")) == 2:  # DD-MM format
-                    timestamp = datetime.datetime.strptime(before_date, "%d-%m").replace(year=datetime.datetime.now().year)
-                else:  # DD-MM-YYYY format
-                    timestamp = datetime.datetime.strptime(before_date, "%d-%m-%Y")
-            else:
-                timestamp = datetime.datetime.now()
-        except ValueError:
-            await interaction.response.send_message("Invalid date format. Use DD-MM or DD-MM-YYYY.", ephemeral=True)
+            timestamp = helpers.validate_timestamp(before_date)
+        except ValueError as e:
+            await interaction.response.send_message(f"Invalid date format. Use HH:MM, DD-MM, HH:MM DD-MM, or DD-MM-YYYY.\nError: {e}", ephemeral=True)
             return
 
         # Gather backups and filter by timestamp
