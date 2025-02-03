@@ -20,6 +20,7 @@ class BotConfig:
     discord_char_limit: int = 2000
     discord_dropdown_limit: int = 25
     admin_users: List[int] = field(default_factory=list)
+    admin_roles: List[int] = field(default_factory=list)
     presence: PresenceConfig = field(default_factory=PresenceConfig)
     chat: ChatConfig = field(default_factory=ChatConfig)
 

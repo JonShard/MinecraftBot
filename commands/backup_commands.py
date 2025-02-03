@@ -4,7 +4,7 @@ import re
 import tarfile
 import datetime
 import discord
-from discord import app_commands
+from discord import app_commands, TextStyle, ui
 
 import utility.helper_functions as helpers
 import utility.ops_helpers as ops_helpers
@@ -76,6 +76,7 @@ class BackupCommands(app_commands.Group):
 
 
 
+            
 
 
 
@@ -84,10 +85,9 @@ class BackupCommands(app_commands.Group):
     @app_commands.describe(before_date="Optional: Show backups before this date (format 'HH:MM' or 'HH:MM DD-MM' or 'DD-MM-YYYY'). Ex: '20:30' or 05-01-2025")
     async def restore_backup(self, interaction: discord.Interaction, before_date: str = None):
         """Restores a backup by showing a dropdown of available backups."""
-        # Authorization (whitelist)
-        if interaction.user.id not in cfg.config.bot.admin_users:
-            await interaction.response.send_message("⛔ Sorry, you are not authorized to use this command.", ephemeral=True)
-            return     
+        if not await helpers.authorize_interaction(interaction):
+            return  # Stop execution if the user is not authorized
+         
         # Validate and parse the timestamp
         try:
             timestamp = helpers.validate_timestamp(before_date)
@@ -127,14 +127,28 @@ class BackupCommands(app_commands.Group):
             for file, mtime, size in limited_backups
         ]
 
-        class BackupDropdown(discord.ui.Select):
-            def __init__(self):
-                super().__init__(placeholder="Select a backup to restore", options=options)
+        class BackupConfirmationModal(ui.Modal, title="Confirm Backup Restore"):
+            def __init__(self, selected_backup: str):
+                super().__init__()
+                self.selected_backup = selected_backup  
+                self.backup_path = os.path.join(cfg.config.minecraft.backup.path, selected_backup)
 
-            async def callback(self, interaction: discord.Interaction):
-                selected_backup = self.values[0]
-                backup_path = os.path.join(cfg.config.minecraft.backup.path, selected_backup)
+                # Add a dynamic confirmation input with a custom label
+                self.confirmation = ui.TextInput(
+                    label=f"Use: {self.selected_backup[:39]}?",
+                    placeholder="Type 'YES' to confirm using this restore",
+                    style=TextStyle.short,
+                    required=True,
+                    max_length=3
+                )
+                self.add_item(self.confirmation)  # Dynamically add the text input
 
+            async def on_submit(self, interaction: discord.Interaction):
+                # Check if the confirmation input matches "YES"
+                if self.confirmation.value.strip().upper() != "YES":
+                    await interaction.response.send_message("Restore cancelled. You did not confirm.", ephemeral=True)
+                    return            
+                
                 try:
 
                     # Shut down Minecraft server
@@ -180,7 +194,7 @@ class BackupCommands(app_commands.Group):
                         shutil.rmtree(world_path)
 
                     # Extract the backup into the MC_SERVER_PATH, ensuring the world is placed correctly
-                    with tarfile.open(backup_path, "r:gz") as tar:
+                    with tarfile.open(self.backup_path, "r:gz") as tar:
                         # Extract the world folder to its proper location
                         tar.extractall(cfg.config.minecraft.server_path)
 
@@ -196,12 +210,25 @@ class BackupCommands(app_commands.Group):
                     
                     # Step 4: Notify the user of success
                     await interaction.followup.send(
-                        f"Backup `{os.path.join(cfg.config.minecraft.backup.path, selected_backup)}` restored successfully!\nServer should be booting now.",
+                        f"Backup `{os.path.join(cfg.config.minecraft.backup.path, self.selected_backup)}` restored successfully!\nServer should be booting now.",
                         ephemeral=True
                     )
                 except Exception as e:
                     await interaction.followup.send(f"Failed to restore backup: {e}", ephemeral=True)
 
+
+
+
+
+
+        class BackupDropdown(discord.ui.Select):
+            def __init__(self):
+                super().__init__(placeholder="Select a backup to restore", options=options)
+
+            async def callback(self, interaction: discord.Interaction):
+                selected_backup = self.values[0]
+                # Show the confirmation modal
+                await interaction.response.send_modal(BackupConfirmationModal(selected_backup))
         class BackupView(discord.ui.View):
             def __init__(self):
                 super().__init__()
@@ -217,6 +244,7 @@ class BackupCommands(app_commands.Group):
             view=BackupView(),
             ephemeral=True
         )
+
 
 
 
@@ -237,7 +265,7 @@ class BackupCommands(app_commands.Group):
             await interaction.response.send_message(
                         "Creating a backup... This may take a while. Please wait. ⏳", ephemeral=True
                     )
-            output_name = await ops_helpers.async_create_backup(helpers.sanitize_string(name, True, True))
+            output_name = await ops_helpers.async_create_backup(helpers.sanitize_string(name, True, True), True)
 
             await interaction.followup.send(f"Backup `{output_name}` created successfully!", ephemeral=False)
         except Exception as e:

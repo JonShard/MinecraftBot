@@ -16,6 +16,38 @@ import utility.globals as globals
 
 import utility.background_tasks as tasks
 
+async def authorize_interaction(interaction: discord.Interaction) -> bool:
+    """
+    Checks if the user has at least one of the required admin roles.
+
+    Args:
+        interaction (discord.Interaction): The interaction object from the command.
+
+    Returns:
+        bool: True if authorized, False if not.
+    """
+    
+   # Is admin whitelisted user?
+    if interaction.user.id in cfg.config.bot.admin_users:
+        return True
+    
+    # Has an admin role?
+    if interaction.guild is not None:
+        # Get the user's roles
+        member = await interaction.guild.fetch_member(interaction.user.id)
+        if not member:
+            await interaction.response.send_message("⛔ Could not find any admin roles for your user.", ephemeral=True)
+            return False
+        
+        # Check if the user has any of the required admin roles
+        admin_role_ids = cfg.config.bot.admin_roles
+        if any(role.id in admin_role_ids for role in member.roles):
+            return True  # User is authorized
+   
+    await interaction.response.send_message("⛔ Sorry, you are not authorized to use this command.", ephemeral=True)
+    return False
+
+
 def update_csv_player_count():
         # Attempt to get the latest player count from your global or via RCON
         # (Here we assume you already update 'player_count' in update_server_status,

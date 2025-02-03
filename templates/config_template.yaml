@@ -4,6 +4,8 @@ bot:
   discord_dropdown_limit: 25
   admin_users:
     - 123123123123123123 
+  admin_roles:
+    - 123456789045678907
   presence:
     update_interval_sec: 3
   chat:

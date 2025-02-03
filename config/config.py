@@ -31,6 +31,7 @@ async def load_config() -> bool:
                 discord_char_limit=data["bot"].get("discord_char_limit", 2000),
                 discord_dropdown_limit=data["bot"].get("discord_dropdown_limit", 25),
                 admin_users=data["bot"].get("admin_users", []),
+                admin_roles=data["bot"].get("admin_roles", []),
                 presence=PresenceConfig(**data["bot"].get("presence", {})),
                 chat=ChatConfig(**data["bot"].get("chat", {})),
             ),
