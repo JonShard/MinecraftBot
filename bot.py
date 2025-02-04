@@ -12,6 +12,7 @@ log = get_logger()
 # Load Config Before Creating the Bot
 # ──────────────────────────
 async def load_config_early():
+    log.info("############### Minecraft Bot Start ###############")
     if not await cfg.load_config():
         log.error("ERROR: Failed to load configuration. An error occured. Exiting...")
         exit(1)  # Stop execution if config failed to load
@@ -62,15 +63,11 @@ async def on_ready():
     try:
         log.info("Attempting to sync commands...")
         synced_commands = await bot.tree.sync()        
-        log.info(f"Synced {len(synced_commands)} commands.")
-        
-        log.info("Slash commands synced.")
+        log.info(f"Synced {len(synced_commands)} commands.")        
     except Exception as e:
         log.error(f"Error syncing slash commands: {e}")
 
     await start_tasks()
-
     log.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
-    
-    
+
 bot.run(cfg.config.bot.bot_token)
