@@ -7,6 +7,8 @@ import discord
 from discord import app_commands
 
 import config.config as cfg
+from utility.logger import get_logger
+log = get_logger()
 import utility.helper_functions as helpers
 import utility.rcon_helpers as rcon_helpers
 
@@ -26,6 +28,7 @@ class RconCommands(app_commands.Group):
         - "■■■■ Players Joined Today (X) ■■■■"
         - "■■■■ Currently Online (Y) ■■■■"
         """
+        await helpers.log_interaction(interaction)
         await interaction.response.defer(ephemeral=False, thinking=True)
 
         # ─── 1) PLAYERS WHO JOINED YESTERDAY ───
@@ -45,7 +48,7 @@ class RconCommands(app_commands.Group):
             else:
                 players_yesterday_count = 0
         except Exception as e:
-            print(f"Error retrieving players who joined yesterday: {e}")
+            log.error(f"Error retrieving players who joined yesterday: {e}")
             players_yesterday_count = 0
 
         # ─── 2) CURRENT ONLINE PLAYERS VIA RCON ───
@@ -70,7 +73,7 @@ class RconCommands(app_commands.Group):
                     currently_online = []
             except Exception as e:
                 rcon_helpers.close_rcon_connection()
-                print(f"Failed to retrieve current player list: {e}")
+                log.error(f"Failed to retrieve current player list: {e}")
                 player_count_now = 0
                 currently_online = []
 
@@ -86,7 +89,7 @@ class RconCommands(app_commands.Group):
             else:
                 players_today_list = []
         except Exception as e:
-            print(f"Error retrieving players who joined today: {e}")
+            log.error(f"Error retrieving players who joined today: {e}")
             players_today_list = []
 
         players_today_count = len(players_today_list)
@@ -150,6 +153,7 @@ class RconCommands(app_commands.Group):
         Creates (or recreates) one chat window in this channel (DM or text).
         Keeps refreshing for 5 minutes.
         """
+        await helpers.log_interaction(interaction)
         # Acknowledge command
         await interaction.response.defer(ephemeral=False, thinking=True)
         # Post/refresh
@@ -166,6 +170,8 @@ class RconCommands(app_commands.Group):
         Send /say to the server with a color-coded prefix,
         then move the chat window to the bottom if it exists in this channel.
         """
+        await helpers.log_interaction(interaction)
+
         rcon_helpers.ensure_rcon_connection()
         if rcon_helpers.mcr_connection is None:
             await interaction.response.send_message("Could not connect to RCON. Try again later.", ephemeral=True)
@@ -203,6 +209,7 @@ class RconCommands(app_commands.Group):
         """
         Sets the weather in the Minecraft world with input validation for duration_minutes and weather-specific emojis.
         """
+        await helpers.log_interaction(interaction)
         await interaction.response.defer(ephemeral=False, thinking=True)
 
         rcon_helpers.ensure_rcon_connection()

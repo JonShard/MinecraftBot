@@ -5,6 +5,8 @@ import discord
 from discord.ext import tasks
 
 import config.config as cfg
+from utility.logger import get_logger
+log = get_logger()
 
 import utility.globals as globals
 
@@ -83,7 +85,7 @@ async def update_bot_presence_task(bot):
                     status_message = f"{globals.player_count} players online"
 
     except Exception as e:
-        print(f"Error updating status: {e}")
+        log.error(f"Error updating status: {e}")
         status_message = "Server is offline"
 
     # Update bot presence with the current status message
@@ -97,10 +99,6 @@ async def player_count_logger_task():
     """
     # Store how many players are currently online in the csv file
     helpers.update_csv_player_count()
-    # After writing the row, generate a fresh graph
-    helpers.generate_player_count_graph()
-
-
 
 async def background_chat_update_task(channel_id: int):
     """
@@ -122,9 +120,9 @@ async def background_chat_update_task(channel_id: int):
             try:
                 await data["message"].delete()
             except Exception as e:
-                print(f"Failed to delete expired chat window in channel {channel_id}: {e}")
+                log.error(f"Failed to delete expired chat window in channel {channel_id}: {e}")
             del globals.chat_windows[channel_id]
-            print(f"Chat window in channel {channel_id} expired.")
+            log.debug(f"Chat window in channel {channel_id} expired.")
             return
 
         # Otherwise, update the message
@@ -134,7 +132,7 @@ async def background_chat_update_task(channel_id: int):
         try:
             await data["message"].edit(content=new_content)
         except Exception as e:
-            print(f"Failed to edit chat window in channel {channel_id}: {e}")
+            log.error(f"Failed to edit chat window in channel {channel_id}: {e}")
             # Remove and stop
             del globals.chat_windows[channel_id]
             return
@@ -145,7 +143,7 @@ async def backup_task():
     if cfg.config.minecraft.backup.enabled:
         await ops_helpers.async_create_backup("backup")
     else:
-        print("Backup task disabled, skipping.")
+        log.info("Backup task disabled, skipping.")
     await ops_helpers.async_delete_old_backups()
 
 

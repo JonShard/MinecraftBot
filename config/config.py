@@ -2,6 +2,8 @@ import os
 import yaml
 
 from config.root_config import *
+from utility.logger import get_logger
+log = get_logger()
 
 CONFIG_FILE = "config.yaml"
 config = None
@@ -19,10 +21,10 @@ async def load_config() -> bool:
         Config: The loaded configuration.
     """
     if not os.path.exists(CONFIG_FILE):
-        print(f"Config file {CONFIG_FILE} not found. Using defaults.")
+        log.error(f"Config file {CONFIG_FILE} not found. Using defaults.")
         config = Config()
     try:
-        print("Loading config...")
+        log.debug("Loading config...")
         with open(CONFIG_FILE, "r") as file:
             data = yaml.safe_load(file)
             config = Config(
@@ -47,9 +49,9 @@ async def load_config() -> bool:
         )
     except Exception as e:
         config = Config()
-        print(f"Failed to load config: {e}")
+        log.error(f"Failed to load config: {e}")
         return False
-    print("Finished loading config")
+    log.info("Finished loading config")
     return True
 
 def save_config():

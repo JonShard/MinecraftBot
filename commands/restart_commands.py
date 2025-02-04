@@ -1,6 +1,8 @@
 from discord import app_commands
 import discord
 import config.config as cfg
+from utility.logger import get_logger
+log = get_logger()
 import utility.helper_functions as helpers
 
 class DeleteButton(discord.ui.View):
@@ -29,6 +31,7 @@ class RestartCommands(app_commands.Group):
 
     @app_commands.command(name="list", description="Manage all restart times. Remove a time.")
     async def restart_list(self, interaction: discord.Interaction):
+        await helpers.log_interaction(interaction)
         await interaction.response.send_message("The MC server will restart at these times:\n")
         
         for time in cfg.config.minecraft.restart.times:

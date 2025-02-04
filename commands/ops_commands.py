@@ -10,6 +10,8 @@ from discord import app_commands
 from discord import ui
 from utility.globals import *
 import config.config as cfg
+from utility.logger import get_logger
+log = get_logger()
 import utility.helper_functions as helpers
 import utility.ops_helpers as ops_helpers
 import utility.server_properties_helper as props_helper
@@ -26,6 +28,7 @@ def register_commands(bot):
         Replicates the old !status command.
         """
         global ext_chunk_count
+        await helpers.log_interaction(interaction)
 
         try:
             # Gather system/server information
@@ -50,7 +53,7 @@ def register_commands(bot):
                     formatted_mc_uptime = "Unknown"
 
             except Exception as e:
-                print(f"Error parsing Minecraft server uptime: {e}")
+                log.error(f"Error parsing Minecraft server uptime: {e}")
                 formatted_mc_uptime = "Unknown"
 
 
@@ -103,7 +106,7 @@ def register_commands(bot):
                 total_memory_match = re.search(r'Total online memory:\s+([\d,]+)G', lsmem_output)
                 total_memory = f"{total_memory_match.group(1).replace(',', '.')}GB" if total_memory_match else "Unknown"
             except Exception as e:
-                print(f"Error fetching total memory: {e}")
+                log.error(f"Error fetching total memory: {e}")
                 total_memory = "Unknown"
 
             # Get memory details from `free`
@@ -172,7 +175,7 @@ def register_commands(bot):
                 # Ensure the message ends properly with the closing backticks for the code block
                 truncation_message = "... (truncated)\n```"
                 output = output[:cfg.config.bot.discord_char_limit - len(truncation_message)] + truncation_message
-                print(f"Trimmed {trimmed_length} characters from the status message.")
+                log.debug(f"Trimmed {trimmed_length} characters from the status message.")
             # If the message doesn't exceed the limit but still needs to end with a code block
             elif not output.endswith("```"):
                 output += "```"
@@ -204,6 +207,7 @@ def register_commands(bot):
 
             if action == "status":
                 # Fetch and display service status
+                await helpers.log_interaction(interaction)
                 status_message = await ops_helpers.async_service_status()
                 await interaction.followup.send(status_message, ephemeral=False)
             else:
@@ -272,7 +276,7 @@ def register_commands(bot):
                     ephemeral=True
                 )
             except discord.errors.ClientException:
-                print(f"Failed to send error message: {error_message}")
+                log.error(f"Failed to send error message: {error_message}")
         except Exception as e:
             try:
                 await interaction.followup.send(
@@ -280,7 +284,7 @@ def register_commands(bot):
                     ephemeral=True
                 )
             except discord.errors.ClientException:
-                print(f"Failed to send unexpected error message: {e}")
+                log.error(f"Failed to send unexpected error message: {e}")
 
 
 

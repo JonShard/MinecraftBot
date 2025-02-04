@@ -9,6 +9,8 @@ import utility.server_properties_helper as props_helper
 import utility.service_helpers as serv_helper
 
 import config.config as cfg
+from utility.logger import get_logger
+log = get_logger()
 
 # For running tar async
 executor = ThreadPoolExecutor()
@@ -21,7 +23,7 @@ def create_world_backup_helper(prefix: str) -> str:
     Returns:
         str: The path of the created backup.
     """
-    print("Starting world backup...")
+    log.info("Starting world backup...")
     # Fetch the world folder name from server.properties
     try:
         world_name = props_helper.get_server_property(props_helper.ServerProperties.LEVEL_NAME, cfg.config.minecraft.server_path)
@@ -33,7 +35,7 @@ def create_world_backup_helper(prefix: str) -> str:
     
     world_path = os.path.join(cfg.config.minecraft.server_path, world_name)
     if not os.path.exists(world_path):
-        print(f"Backup failed: World folder '{world_name}' does not exist at {world_path}.")
+        log.warning(f"Backup failed: World folder '{world_name}' does not exist at {world_path}.")
         return ""
     
     # Create a timestamped backup name
@@ -45,7 +47,7 @@ def create_world_backup_helper(prefix: str) -> str:
     with tarfile.open(backup_path, "w:gz") as tar:
         tar.add(world_path, arcname=os.path.basename(world_path))
 
-    print(f"Created world backup: {backup_path}")
+    log.info(f"Created world backup: {backup_path}")
     return backup_path
 
 
@@ -71,7 +73,7 @@ async def wait_for_pretty_timestamp():
     next_time = now.replace(hour=current_hour, minute=next_minute, second=0, microsecond=0)
     wait_time = (next_time - now).total_seconds() - 15 # magic number, start a few sec early so backup is more likely to be pretty number
 
-    print(f"Waiting {int(wait_time // 60)} min {int(wait_time % 60)} sec until {next_time.strftime('%H:%M')}...")
+    log.info(f"Waiting {int(wait_time // 60)} min {int(wait_time % 60)} sec until {next_time.strftime('%H:%M')}...")
     await asyncio.sleep(wait_time)
     
 
@@ -102,7 +104,7 @@ def delete_old_backups_helper() -> int:
     deleted_count = 0
 
     if not os.path.exists(BACKUP_DIR):
-        print(f"Backup directory does not exist: {BACKUP_DIR}")
+        log.warning(f"Backup directory does not exist: {BACKUP_DIR}")
         return deleted_count
 
     # List all backup files
@@ -121,7 +123,7 @@ def delete_old_backups_helper() -> int:
         if file_age_days > cfg.config.minecraft.backup.delete_sparse_after_days:
             os.remove(file)
             deleted_count += 1
-            print(f"Deleted sparse backup: {file}")
+            log.debug(f"Deleted sparse backup: {file}")
             continue  # Skip processing for these files
 
         # Step 2: Group backups by day (ONLY IF older than 24 hours)
@@ -150,7 +152,7 @@ def delete_old_backups_helper() -> int:
             if file != closest_backup:
                 os.remove(file)
                 deleted_count += 1
-                print(f"Deleted frequent backup: {file}")
+                log.debug(f"Deleted frequent backup: {file}")
 
     return deleted_count
 
@@ -191,7 +193,7 @@ async def async_service_control(action: str) -> str:
     await serv_helper.ensure_service_file()
     service_name = cfg.config.minecraft.service_name
 
-    print(f"{action} {service_name}")
+    log.info(f"{action} {service_name}")
     
     process = await asyncio.create_subprocess_exec(
         "sudo", "systemctl", action, service_name,
@@ -275,5 +277,5 @@ async def is_service_running() -> bool:
     elif process.returncode != 0:
         # Log or print an error message for debugging if necessary
         if error_output:
-            print(f"Error checking service status: {error_output}")
+            log.error(f"Error checking service status: {error_output}")
     return False

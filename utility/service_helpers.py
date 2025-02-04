@@ -1,15 +1,17 @@
 import os
 import config.config as cfg
+from utility.logger import get_logger
+log = get_logger()
 import subprocess
 
 def reload_systemd():
     """ Reloads systemd to recognize changes in service files. """
     try:
-        print("Reloading systemd daemon...")
+        log.debug("Reloading systemd daemon...")
         subprocess.run(["sudo", "systemctl", "daemon-reload"], check=True)
-        print("Systemd daemon reload complete.")
+        log.debug("Systemd daemon reload complete.")
     except subprocess.CalledProcessError as e:
-        print(f"Error reloading systemd daemon: {e}")
+        log.error(f"Error reloading systemd daemon: {e}")
 
 async def ensure_service_file():
     """
@@ -24,7 +26,7 @@ async def ensure_service_file():
 
     # Check if service file already exists
     if os.path.exists(service_file_path):
-        print(f"Service file already exists: {service_file_path}")
+        log.debug(f"Service file already exists: {service_file_path}")
         return
 
     # Read the service template
@@ -42,10 +44,10 @@ async def ensure_service_file():
     try:
         with open(service_file_path, "w") as service_file:
             service_file.write(service_content)
-        print(f"Created service file: {service_file_path}")
+        log.info(f"Created service file: {service_file_path}")
 
         # Reload systemd to recognize the new service
         reload_systemd()
 
     except Exception as e:
-        print(f"Failed to create service file: {e}")
+        log.error(f"Failed to create service file: {e}")

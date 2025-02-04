@@ -48,7 +48,6 @@ class MinecraftConfig:
         # Ensure the service name always ends with ".service"
         if self.service_name and not self.service_name.endswith(".service"):
             self.service_name += ".service"
-        print(f"SERVICE NAME = {self.service_name }")
     
     # Derived paths as properties
     @property

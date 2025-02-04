@@ -6,3 +6,7 @@ secrets.txt
 
 config.yaml
 config.yml
+
+_logs
+*.log
+*.gz

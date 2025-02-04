@@ -4,16 +4,19 @@ import discord
 from discord.ext import commands
 
 import config.config as cfg
+from utility.logger import get_logger
+log = get_logger()
+
 
 # ──────────────────────────
 # Load Config Before Creating the Bot
 # ──────────────────────────
 async def load_config_early():
     if not await cfg.load_config():
-        print("ERROR: Failed to load configuration. An error occured. Exiting...")
+        log.error("ERROR: Failed to load configuration. An error occured. Exiting...")
         exit(1)  # Stop execution if config failed to load
     if cfg.config is None:
-        print("ERROR: Failed to load configuration. config is None Exiting...")
+        log.error("ERROR: Failed to load configuration. config is None Exiting...")
         exit(1)  # Stop execution if config failed to load
 
 # Run the config load early
@@ -37,11 +40,11 @@ for filename in os.listdir(commands_dir):
             # Call the `register_commands()` function in the module
             if hasattr(module, "register_commands"):
                 module.register_commands(bot)
-                print(f"Registered commands from {module_name}")
+                log.debug(f"Registered commands from {module_name}")
             else:
-                print(f"No register() function in {module_name}, skipping.")
+                log.warning(f"No register() function in {module_name}, skipping.")
         except Exception as e:
-            print(f"Error loading {module_name}: {e}")
+            log.error(f"Error loading {module_name}: {e}")
 
 
 async def start_tasks():
@@ -57,17 +60,17 @@ async def start_tasks():
 @bot.event
 async def on_ready():
     try:
-        print("Attempting to sync commands...")
+        log.info("Attempting to sync commands...")
         synced_commands = await bot.tree.sync()        
-        print(f"Synced {len(synced_commands)} commands.")
+        log.info(f"Synced {len(synced_commands)} commands.")
         
-        print("Slash commands synced.")
+        log.info("Slash commands synced.")
     except Exception as e:
-        print(f"Error syncing slash commands: {e}")
+        log.error(f"Error syncing slash commands: {e}")
 
     await start_tasks()
 
-    print(f"Logged in as {bot.user} (ID: {bot.user.id})")
+    log.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
     
     
 bot.run(cfg.config.bot.bot_token)

@@ -12,9 +12,21 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 
 import config.config as cfg
+from utility.logger import get_logger
+log = get_logger()
 import utility.globals as globals
 
 import utility.background_tasks as tasks
+
+def get_command(interaction: discord.Interaction) -> str:
+    param_values = []
+    for param in interaction.command.parameters:
+        param_name = param.name  # Get the parameter's name
+        param_value = getattr(interaction.namespace, param_name, None)  # Fetch its value
+        param_values.append(f"'{param_name}={param_value}'")
+    param_string = " ".join(param_values)
+    command_string = f"/{interaction.command.qualified_name} {param_string.strip()}"    
+    return command_string
 
 async def authorize_interaction(interaction: discord.Interaction) -> bool:
     """
@@ -29,6 +41,7 @@ async def authorize_interaction(interaction: discord.Interaction) -> bool:
     
    # Is admin whitelisted user?
     if interaction.user.id in cfg.config.bot.admin_users:
+        log.info(f"[Auth] Allowed: {interaction.user.name} - {get_command(interaction)}")
         return True
     
     # Has an admin role?
@@ -37,15 +50,22 @@ async def authorize_interaction(interaction: discord.Interaction) -> bool:
         member = await interaction.guild.fetch_member(interaction.user.id)
         if not member:
             await interaction.response.send_message("⛔ Could not find any admin roles for your user.", ephemeral=True)
+            log.warning(f"[Auth] DENIED: {interaction.user.name} - {get_command(interaction)}")
             return False
         
         # Check if the user has any of the required admin roles
         admin_role_ids = cfg.config.bot.admin_roles
         if any(role.id in admin_role_ids for role in member.roles):
+            log.info(f"[Auth] Allowed: {interaction.user.name} - {get_command(interaction)}")
             return True  # User is authorized
    
     await interaction.response.send_message("⛔ Sorry, you are not authorized to use this command.", ephemeral=True)
+    log.warning(f"[Auth] DENIED: {interaction.user.name} - {get_command(interaction)}")
     return False
+
+
+async def log_interaction(interaction: discord.Interaction):
+    log.info(f"[Auth] Open:    {interaction.user.name} - {get_command(interaction)}")
 
 
 def update_csv_player_count():
@@ -56,7 +76,7 @@ def update_csv_player_count():
         # If player_count is None or invalid, you could skip or set it to 0
         if globals.player_count is None:
             count_to_log = 0
-            print("Warning. Playercound is None")
+            log.warning("Warning. Playercount is None")
         else:
             count_to_log = globals.player_count
 
@@ -74,7 +94,7 @@ def write_player_count_csv(row):
     Appends a single row [timestamp, player_count] to STAT_CSV_PATH.
     If the file doesn't exist, writes a header first.
     """
-    print(f"Writing row to {cfg.config.stats.csv_path}: {row}")  # Debug
+    log.debug(f"Writing row to {cfg.config.stats.csv_path}: {row}")  # Debug
     file_exists = os.path.isfile(cfg.config.stats.csv_path)
 
     with open(cfg.config.stats.csv_path, mode="a", newline="", encoding="utf-8") as csvfile:
@@ -98,7 +118,7 @@ def generate_player_count_graph():
 
     # 1) Read the CSV data
     if not os.path.isfile(cfg.config.stats.csv_path):
-        print("No CSV found to plot.")
+        log.warning("No CSV found to plot.")
         return
 
     with open(cfg.config.stats.csv_path, mode="r", encoding="utf-8") as csvfile:
@@ -127,7 +147,7 @@ def generate_player_count_graph():
         daily_counts[today] = 0  # Assume 0 players for today if no data exists
 
     if not daily_counts:
-        print("No data in CSV to plot.")
+        log.warning("No data in CSV to plot.")
         return
 
     # 2) Prepare data for plotting
@@ -182,7 +202,7 @@ def generate_player_count_graph():
     plt.tight_layout()
     plt.savefig(cfg.config.stats.player_count_png)
     plt.close()
-    print(f"Saved dark-themed bar chart to {cfg.config.stats.player_count_png}.")
+    log.info(f"Saved bar chart to {cfg.config.stats.player_count_png}.")
 
 
 
@@ -203,7 +223,7 @@ async def post_or_refresh_chat_window(bot, channel: discord.abc.Messageable):
         try:
             await old_data["message"].delete()
         except Exception as e:
-            print(f"Could not delete old chat window in channel {channel_id}: {e}")
+            log.error(f"Could not delete old chat window in channel {channel_id}: {e}")
 
         # Stop the old task
         if old_data["task"]:
@@ -329,7 +349,7 @@ async def repost_chat_window(interaction):
             globals.chat_windows[channel_id]["expires_at"] = asyncio.get_event_loop().time() + cfg.config.bot.chat.duration_min * 60 # 60 sec in a minute
             # Delete and repost to put it at the bottom
             await post_or_refresh_chat_window(interaction.channel)
-            print(f"Chat window moved to bottom after /say in channel {channel_id}.")
+            log.info(f"Chat window moved to bottom after /say in channel {channel_id}.")
 
 
 def validate_string(

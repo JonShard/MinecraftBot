@@ -7,8 +7,10 @@ from discord.embeds import Embed
 
 
 import config.config as cfg
+from utility.logger import get_logger
+log = get_logger()
 import commands.ops_commands as ops_com
-
+import utility.helper_functions as helpers
 
 def register_commands(bot):
     @bot.tree.command(name="modpack", description="Provides the modpack download link and server's public IP.")
@@ -16,6 +18,7 @@ def register_commands(bot):
         """
         Sends a message with the modpack download link, the server's public IP, and port.
         """
+        await helpers.log_interaction(interaction)
         try:
             # Fetch the public IP dynamically
             response = requests.get("https://api.ipify.org?format=text")
@@ -76,6 +79,7 @@ def register_commands(bot):
 
     @bot.tree.command(name="help", description="Show all available commands grouped by category.")
     async def slash_help(interaction: discord.Interaction):
+        await helpers.log_interaction(interaction)
         """
         Show all available commands grouped by category.
         """

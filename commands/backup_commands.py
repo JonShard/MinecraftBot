@@ -11,6 +11,8 @@ import utility.ops_helpers as ops_helpers
 import utility.server_properties_helper as props_helper
 
 import config.config as cfg
+from utility.logger import get_logger
+log = get_logger()
 
 # Use regex to extract the name before the timestamp
 def extract_name(full_name: str) -> str:
@@ -25,6 +27,7 @@ class BackupCommands(app_commands.Group):
     @app_commands.command(name="list", description="List all backups.")
     @app_commands.describe(before_date="Optional: Show backups before this date (format 'HH:MM' or 'HH:MM DD-MM' or 'DD-MM-YYYY'). Ex: '20:30' or 05-01-2025")
     async def backup_list(self, interaction: discord.Interaction, before_date: str = None):
+        await helpers.log_interaction(interaction)
         """Lists all `.tar.gz` archives in the backup folder with size, timestamp, and name."""
         if not os.path.exists(cfg.config.minecraft.backup.path):
             await interaction.response.send_message("Backup folder does not exist!", ephemeral=True)
@@ -68,7 +71,7 @@ class BackupCommands(app_commands.Group):
             while len(backup_message) > cfg.config.bot.discord_char_limit and max_backups > 0:
                 max_backups -= 1
                 backup_message = "```\n" + "\n".join(formatted_backups[:max_backups]) + "\n...```"
-            print(f"Trimmed backup list to fit within Discord's character limit. {len(formatted_backups) - max_backups} entries removed.")
+            log.debug(f"Trimmed backup list to fit within Discord's character limit. {len(formatted_backups) - max_backups} entries removed.")
 
         # Send the final message
         await interaction.response.send_message(content=backup_message, ephemeral=True)
@@ -252,6 +255,7 @@ class BackupCommands(app_commands.Group):
     @app_commands.describe(name="Optional custom name for the backup",)
     async def create_backup(self, interaction: discord.Interaction, name: str = "backup"):
         """Creates a new backup of the Minecraft server folder."""
+        await helpers.log_interaction(interaction)
         if not os.path.exists(cfg.config.minecraft.server_path):
             await interaction.response.send_message("Minecraft server folder not found!", ephemeral=True)
             return

@@ -3,6 +3,8 @@ import re
 from mcrcon import MCRcon
 
 import config.config as cfg
+from utility.logger import get_logger
+log = get_logger()
 
 mcr_connection = None
 
@@ -42,12 +44,12 @@ def ensure_rcon_connection():
         conn = MCRcon("localhost", rcon_password, port=rcon_port)
         conn.connect()
         mcr_connection = conn
-        print("RCON: Connected successfully.")
+        log.info("RCON: Connected successfully.")
     except FileNotFoundError:
-        print(f"RCON: server.properties not found at {server_properties_path}.")
+        log.error(f"RCON: server.properties not found at {server_properties_path}.")
         mcr_connection = None
     except Exception as e:
-        print(f"RCON: Failed to connect: {e}")
+        log.error(f"RCON: Failed to connect: {e}")
         mcr_connection = None
 
 def close_rcon_connection():
@@ -57,7 +59,7 @@ def close_rcon_connection():
         try:
             mcr_connection.disconnect()
         except Exception as e:
-            print(f"RCON: Error while disconnecting: {e}")
+            log.error(f"RCON: Error while disconnecting: {e}")
         mcr_connection = None
 
 def get_player_count_from_rcon():
@@ -72,7 +74,7 @@ def get_player_count_from_rcon():
         if match:
             return int(match.group(1))
     except Exception as e:
-        print(f"RCON: Command error: {e}")
+        log.error(f"RCON: Command error: {e}")
         close_rcon_connection()
     return None
 
