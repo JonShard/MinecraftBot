@@ -62,6 +62,9 @@ class MinecraftConfig:
     def log_file_path(self) -> str:
         return os.path.join(self.logs_dir, "latest.log")
     
+    @property
+    def debug_log_file_path(self) -> str:
+        return os.path.join(self.logs_dir, "debug.log")
 
 
 @dataclass

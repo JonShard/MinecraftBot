@@ -350,3 +350,38 @@ def register_commands(bot):
 
         # Show the confirmation modal
         await interaction.response.send_modal(WipeConfirmationModal())
+        
+            
+            
+
+    @bot.tree.command(name="logs", description="Show recent MC server log")
+    async def slash_logs(interaction: discord.Interaction, line_count: app_commands.Range[int, 1, 500] = 10, debug_log: bool = False):
+        """Fetches the last N lines from the Minecraft log and sends them in chunks."""
+        await helpers.log_interaction(interaction)
+        
+        if not debug_log:
+            log_file_path = cfg.config.minecraft.log_file_path
+        else:
+            log_file_path = cfg.config.minecraft.debug_log_file_path
+
+        try:
+            with open(log_file_path, "r") as log_file:
+                log_lines = log_file.readlines()[-line_count:]  # Read only the last N lines
+
+            log_text = "".join(log_lines)  # Convert to a single string
+            messages = [log_text[i:i + cfg.config.bot.discord_char_limit] for i in range(0, len(log_text), cfg.config.bot.discord_char_limit)]  # Split into chunks
+
+            # Send the first message using interaction.response
+            first_message = messages.pop(0)
+            await interaction.response.send_message(f"{first_message}", ephemeral=True)
+
+            # Send the remaining messages using followup
+            for message in messages:
+                await interaction.followup.send(f"{message}", ephemeral=True)
+
+            # Attach the full log file
+            file = discord.File(log_file_path, os.path.basename(log_file_path))
+            await interaction.followup.send(file=file, ephemeral=True)
+
+        except Exception as e:
+            await interaction.response.send_message(f"Error reading log file: {str(e)}", ephemeral=True)

@@ -113,6 +113,7 @@ def register_commands(bot):
 
             "### 🛠️ **Utility Commands**\n"
             "- 📊  **/status**: Show the Minecraft server status.\n"
+            "- 📰  **/logs**: Show recent MC server log\n"
             "- 🎛️  **/server**: Control or check the MC server instance (stop, start, restart, status).\n"
             "- 🔌  **/reboot** 🔒: Reboot the physical machine.\n"
             "- 🗑️  **/wipe** 🔒: Delete the world. (Confirm Yes/No)\n\n"
@@ -124,7 +125,6 @@ def register_commands(bot):
 
     @bot.command()
     async def audit(ctx):
-        log_pattern = os.path.join(LOG_DIR, BASE_LOG_NAME) + "*.log"  # Match multiple log files
         log_lines = []
 
         # Read all matching log files
