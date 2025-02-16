@@ -28,8 +28,9 @@ async def update_bot_presence_task(bot):
     )
 
     try:
-        # Try fetching the player count from RCON
-        count = rcon_helpers.get_player_count_from_rcon()
+        # Check if the service is running without verifying the service file and reloading config every few seconds
+        if await ops_helpers.is_service_running(True):
+            count = rcon_helpers.get_player_count_from_rcon()
 
         # If RCON fails to get a count, set status to offline
         if count is None:
@@ -87,7 +88,7 @@ async def update_bot_presence_task(bot):
     except Exception as e:
         log.error(f"Error updating status: {e}")
         status_message = "Server is offline"
-
+    
     # Update bot presence with the current status message
     await bot.change_presence(activity=discord.Game(status_message))
 

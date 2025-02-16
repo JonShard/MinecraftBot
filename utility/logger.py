@@ -9,7 +9,7 @@ from logging.handlers import TimedRotatingFileHandler
 LOG_DIR = "_logs"          # Directory where logfiles will go
 BASE_LOG_NAME = "mc_bot"   # Base log name => _logs/mc_bot.log, etc.
 DEBUG_LOG_NAME = "debug"   # Debug log file => _logs/debug.log
-LOG_LEVEL_CONSOLE = logging.INFO
+LOG_LEVEL_CONSOLE = logging.DEBUG
 LOG_LEVEL_FILE = logging.INFO
 LOG_LEVEL_DEBUG_FILE = logging.DEBUG  # Debug log will capture everything
 BACKUP_COUNT = 356           # Keep up to x old log files
@@ -58,7 +58,7 @@ def get_logger():
     )
     file_handler.setFormatter(file_formatter)
 
-    # 🔥 Debug file handler
+    # Debug file handler
     debug_file_path = os.path.join(LOG_DIR, f"{DEBUG_LOG_NAME}.log")
     debug_file_handler = TimedRotatingFileHandler(
         filename=debug_file_path,

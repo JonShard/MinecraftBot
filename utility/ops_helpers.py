@@ -23,7 +23,7 @@ def create_world_backup_helper(prefix: str) -> str:
     Returns:
         str: The path of the created backup.
     """
-    log.info("Starting world backup...")
+    log.debug("Starting world backup...")
     # Fetch the world folder name from server.properties
     try:
         world_name = props_helper.get_server_property(props_helper.ServerProperties.LEVEL_NAME, cfg.config.minecraft.server_path)
@@ -71,9 +71,9 @@ async def wait_for_pretty_timestamp():
         current_hour = (current_hour + 1) % 24  # Handle hour overflow
 
     next_time = now.replace(hour=current_hour, minute=next_minute, second=0, microsecond=0)
-    wait_time = (next_time - now).total_seconds() - 15 # magic number, start a few sec early so backup is more likely to be pretty number
+    wait_time = (next_time - now).total_seconds() - 10 # magic number, start a few sec early so backup is more likely to be pretty number
 
-    log.info(f"Waiting {int(wait_time // 60)} min {int(wait_time % 60)} sec until {next_time.strftime('%H:%M')}...")
+    log.debug(f"Waiting {int(wait_time // 60)} min {int(wait_time % 60)} sec until {next_time.strftime('%H:%M')}...")
     await asyncio.sleep(wait_time)
     
 
@@ -248,15 +248,15 @@ async def async_service_status() -> str:
 
 
 
-async def is_service_running() -> bool:
+async def is_service_running(skip_service_check: bool = False) -> bool:
     """
     Checks if the Minecraft server service is currently running.
-    
     Returns:
         bool: True if the service is running, False otherwise.
     """
-    # Ensure the service file exists
-    await serv_helper.ensure_service_file()
+    if not skip_service_check:
+        # Ensure the service file exists
+        await serv_helper.ensure_service_file()
     
     service_name = cfg.config.minecraft.service_name
 

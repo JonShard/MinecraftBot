@@ -5,7 +5,6 @@
 # ──────────────────────────
 player_count = 0
 ext_chunk_count = 0
-
 # ──────────────────────────
 # Single Chat Window *per channel*
 # ──────────────────────────

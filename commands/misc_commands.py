@@ -1,14 +1,16 @@
 
 import os
 import requests
-
+import re
 import discord
 from discord.embeds import Embed
 
 
 import config.config as cfg
-from utility.logger import get_logger
+from utility.logger import get_logger, LOG_DIR, BASE_LOG_NAME
 log = get_logger()
+
+
 import commands.ops_commands as ops_com
 import utility.helper_functions as helpers
 
@@ -118,3 +120,29 @@ def register_commands(bot):
             "*Check the bot's source code here: [GitHub](https://github.com/JonShard/MinecraftBot)*"
         )
         await interaction.response.send_message(response)
+
+
+    @bot.command()
+    async def audit(ctx):
+        log_pattern = os.path.join(LOG_DIR, BASE_LOG_NAME) + "*.log"  # Match multiple log files
+        log_lines = []
+
+        # Read all matching log files
+        for log_file in sorted(os.listdir(LOG_DIR)):
+            if log_file.startswith(BASE_LOG_NAME):  # Ensure it matches mc_bot*.log
+                with open(os.path.join(LOG_DIR, log_file), "r", encoding="utf-8") as file:
+                    for line in file:
+                        if "[Auth]" in line:  # Equivalent to grep '\[Auth\]'
+                            # Apply regex transformation (equivalent to your `sed` command)
+                            match = re.search(r"([0-9-]+ [0-9:]+) \[INFO\] MineBot:[0-9]+ - \[Auth\] ((?:Allowed|Open|DENIED): .*)", line)
+                            if match:
+                                log_lines.append(f"{match.group(1)} {match.group(2)}")
+
+        # Send response
+        if log_lines:
+            response = "\n".join(log_lines[:10])  # Send first 10 lines to avoid spam
+        else:
+            response = "No audit log entries found."
+
+        await ctx.send(f"```{response:1990}```")  # Send output in a code block
+     

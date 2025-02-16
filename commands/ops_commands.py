@@ -139,7 +139,7 @@ def register_commands(bot):
             )
             crashes_times = subprocess.check_output([crashes_cmd], shell=True).decode() or "No crashes yet! <3"
 
-            latest_logs = subprocess.check_output(['tail', '-n', str(10), cfg.config.minecraft.log_file_path]).decode()
+            latest_logs = subprocess.check_output(['tail', '-n', str(5), cfg.config.minecraft.log_file_path]).decode()
 
             # Detect lag occurrences
             with open(cfg.config.minecraft.log_file_path, 'r') as log_file:
