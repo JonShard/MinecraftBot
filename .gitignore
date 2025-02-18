@@ -1,6 +1,6 @@
 secrets.txt
 *.csv
-*.png
+_data/
 
 *pycache*
 

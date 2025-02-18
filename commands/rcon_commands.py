@@ -13,11 +13,11 @@ import utility.helper_functions as helpers
 import utility.rcon_helpers as rcon_helpers
 
 
-# Create a command group for /backup
+# Create a command group for /rcon
 class RconCommands(app_commands.Group):
-    def __init__(self):
+    def __init__(self, bot):
         super().__init__(name="rcon", description="Communicate / interact with the MC server")
-
+        self.bot = bot
 
     @app_commands.command(name="players", description="Show who is online, who has joined today and how many joined yesterday.")
     async def slash_players(self, interaction: discord.Interaction):
@@ -190,7 +190,7 @@ class RconCommands(app_commands.Group):
             await interaction.response.send_message(f"Failed to send message: {e}", ephemeral=True)
             return
 
-        helpers.repost_chat_window(interaction)
+        await helpers.repost_chat_window(interaction)
 
 
 
@@ -391,4 +391,4 @@ class RconCommands(app_commands.Group):
 
 
 def register_commands(bot):
-    bot.tree.add_command(RconCommands())
+    bot.tree.add_command(RconCommands(bot))
