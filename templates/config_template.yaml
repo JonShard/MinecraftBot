@@ -1,37 +1,36 @@
 bot:
-  bot_token: ""
-  discord_char_limit: 2000
-  discord_dropdown_limit: 25
-  admin_users:
-    - 123123123123123123 
-  admin_roles:
-    - 123456789045678907
-  presence:
-    update_interval_sec: 3
+  bot_token: ""  # Discord bot token (keep this secret)
+  discord_char_limit: 2000  # Maximum message length allowed in Discord
+  discord_dropdown_limit: 25  # Maximum options in dropdown menus
+  admin_users: # List of Discord user IDs with admin permissions
+    - 123123123123123123  # Ola Nordmann
+  admin_roles:  # List of Discord role IDs with admin permissions
+    - 123456789045678907 # "Minecraft Admin" role  presence:
+  update_interval_sec: 3  # How often to update bot presence (in seconds)
   chat:
-    update_interval_sec: 5
-    duration_min: 900
-    lines: 10
+    update_interval_sec: 5  # How often to check for new chat messages
+    duration_min: 900  # How long chat messages are kept before being removed (in minutes)
+    lines: 10  # Number of chat lines displayed when fetching logs
 
 minecraft:
-  server_path: "/usr/share/minecraft"
+  server_path: "/usr/share/minecraft"  # Path to the Minecraft server directory
   backup:
-    enabled: true
-    path: "/var/mcbackup/"
-    interval_min: 15
-    delete_frequent_after_hours: 24
-    delete_sparse_after_days: 120
-  modpack_url: "https://www.curseforge.com/minecraft/modpacks/the-phoenix-den-pack"
+    enabled: true  # Whether automatic backups are enabled
+    path: "/var/mcbackup/"  # Directory where backups are stored
+    interval_min: 15  # How often to create backups (in minutes)
+    delete_frequent_after_hours: 24  # Delete frequent backups after this many hours
+    delete_sparse_after_days: 120  # Delete older, less frequent backups after this many days
+  modpack_url: "https://www.curseforge.com/minecraft/modpacks/the-phoenix-den-pack"  # Link to the modpack download
   restart:
-    enabled: true
-    cold_backup_on_restart: True
+    enabled: true  # Whether scheduled restarts are enabled
+    cold_backup_on_restart: True  # Create a full backup before restarting, ensuring no changes to the backup while we're copying it.
     times:
-      - "12:00"
-      - "00:00"
-  service_name: "" # Leave empty to autopoplulate with MC server directory name
-  service_path: "/etc/systemd/system"
+      - "12:00"  # Scheduled restart time (24-hour format)
+      - "00:00"  # These can be added dynamically using the "/restart add" command. 
+  service_name: ""  # Systemd service name (auto-populated if left empty)
+  service_path: "/etc/systemd/system"  # Path to systemd service files
 
 stats:
-  csv_interval_min: 5
-  csv_path: "_data/stats.csv"
-  player_count_png: "_data/stat_players.png"
+  csv_interval_min: 5  # How often to log player stats (in minutes)
+  csv_path: "_data/stats.csv"  # Path to the CSV file storing stats
+  player_count_png: "_data/stat_players.png"  # Path to the player count graph image

@@ -354,7 +354,7 @@ def register_commands(bot):
             
             
 
-    @bot.tree.command(name="logs", description="Show recent MC server log")
+    @bot.tree.command(name="logs", description="Show recent MC server log (or debug log)")
     async def slash_logs(interaction: discord.Interaction, line_count: app_commands.Range[int, 1, 500] = 10, debug_log: bool = False):
         """Fetches the last N lines from the Minecraft log and sends them in chunks."""
         await helpers.log_interaction(interaction)
