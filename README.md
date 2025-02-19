@@ -1,7 +1,7 @@
 # Minecraft Discord Bot
 
 A Discord bot designed to interact with a Minecraft server, providing RCON commands, automated restarts, backups, and more.  
-The bot is meant to be deployed to the same server as a Minecraft server,  
+The bot is meant to be deployed to the same machine as a Minecraft server,  
 and by providing the MC server path in the bot's config, let it manage the MC server through discord slash commands. One bot instance manages one MC server.
 
 ## Features
@@ -16,12 +16,12 @@ Manage the Minecraft server from Discord
 - Warnings about server not keeping up, or external chunks causing lag
 
 ### Backup
-The bot can do frequent backups of the Minecraft world, and then delete most of them after a configured amount of time. For example backup every 15min and delete most of those, the frequent backups after 24 hours, keeping one per day. These can also eventially be deleted after for example 6 months.  
-Backups can then be restored easily with the `/backup restore` command. If the desired backup is too old to fit in the dropdown, a optional timestamp can be added to look at backups before that timestamp, eks: `/backup restore 15-01-2025`  
+The bot can do frequent backups of the Minecraft world, and then delete most of them after a configured amount of time. For example backup every 15min and delete most of those, the frequent backups after 24 hours, keeping one per day. These can also eventually be deleted after for example 6 months.  
+Backups can then be restored easily with the `/backup restore` command. If the desired backup is too old to fit in the dropdown, a optional timestamp can be added to look at backups before that timestamp, ex: `/backup restore 15-01-2025`  
 ![](https://github.com/JonShard/MinecraftBot/blob/master/_docs/backup.gif?raw=true)
 
 ### Chat
-Discord users can spawn a chat window, and see the player's caht messages from the game. They can then talk to the players using say to warn about a restart, ask about a problem or just say hi.  
+Discord users can spawn a chat window, and see the player's chat messages from the game. They can then talk to the players using say to warn about a restart, ask about a problem or just say hi.  
 ![](https://github.com/JonShard/MinecraftBot/blob/master/_docs/chat.gif?raw=true)
 
 
@@ -73,6 +73,7 @@ The `admin_users` and `admin_roles` fields in the configuration file define who 
 ```yaml
 admin_users: # List of Discord user IDs with admin permissions
     - 123123123123123123  # Ola Nordmann
+    - 123123123123123124  # John Doe
 admin_roles:  # List of Discord role IDs with admin permissions
     - 123456789045678907 # "Minecraft Admin" role
 ```
@@ -81,7 +82,7 @@ The `admin_users` list contains specific Discord user IDs, granting admin privil
 
 ### Logfile
 A logfile for the bot is created at `_logs/mc_bot.log`. There is also a `debug.log` file with DEBUG log level for trouble shooting.
-These are rolled over at midnight and are reused accross bot restarts.
+These are rolled over at midnight and are reused across bot restarts.
 ```log
 2025-02-18 10:58:47 [INFO] MineBot:68 - [Auth] Open:    jonshard - /help
 2025-02-18 11:01:01 [INFO] MineBot:50 - Created world backup: /var/mcbackup/backup_2025-02-18T10-59.tar.gz
@@ -95,7 +96,7 @@ These are rolled over at midnight and are reused accross bot restarts.
 ### Requirements
 - Linux distribution with Systemd
 - Running as root to allow access to MC files and manage services.
-- Python 3.8+, discord.py and other dependencies
+- Python 3.8+, discord.py and other dependencies, see `requirements.txt`
 - An active Minecraft server with RCON enabled on the same machine
 
 ## Setup
@@ -105,7 +106,7 @@ These are rolled over at midnight and are reused accross bot restarts.
 1. Install dependencies:  
 `pip install -r requirements.txt`
 1. Configure the bot:  
-Edit config.json with your bot token, RCON credentials, and other settings.
+Edit config.json with your bot token and path to the Minecraft server
 
 Run the bot:  
 `sudo python bot.py`
