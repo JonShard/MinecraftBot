@@ -18,17 +18,17 @@ Manage the Minecraft server from Discord
 ### Backup
 The bot can do frequent backups of the Minecraft world, and then delete most of them after a configured amount of time. For example backup every 15min and delete most of those, the frequent backups after 24 hours, keeping one per day. These can also eventually be deleted after for example 6 months.  
 Backups can then be restored easily with the `/backup restore` command. If the desired backup is too old to fit in the dropdown, a optional timestamp can be added to look at backups before that timestamp, ex: `/backup restore 15-01-2025`  
-![](https://github.com/JonShard/MinecraftBot/blob/master/_docs/backup.gif?raw=true)
+![](https://github.com/JonShard/MinecraftBot/blob/master/docs/backup.gif?raw=true)
 
 ### Chat
 Discord users can spawn a chat window, and see the player's chat messages from the game. They can then talk to the players using say to warn about a restart, ask about a problem or just say hi.  
-![](https://github.com/JonShard/MinecraftBot/blob/master/_docs/chat.gif?raw=true)
+![](https://github.com/JonShard/MinecraftBot/blob/master/docs/chat.gif?raw=true)
 
 
 ### Players Graph
 Show who is online, who has joined today, and how many joined yesterday.
 Gives you an overview of how active the server is at a glance.
-![](https://github.com/JonShard/MinecraftBot/blob/master/_docs/stat_players.png?raw=true)
+![](https://github.com/JonShard/MinecraftBot/blob/master/docs/stat_players.png?raw=true)
 
 
 ### Minecraft Bot /help Command
