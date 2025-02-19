@@ -66,6 +66,10 @@ class MinecraftConfig:
     def debug_log_file_path(self) -> str:
         return os.path.join(self.logs_dir, "debug.log")
 
+@dataclass
+class CurseForge:
+    api_key: str = ""
+    base_url: str = "https://api.curseforge.com"
 
 @dataclass
 class StatsConfig:
@@ -77,4 +81,5 @@ class StatsConfig:
 class Config:
     bot: BotConfig = field(default_factory=BotConfig)
     minecraft: MinecraftConfig = field(default_factory=MinecraftConfig)
+    curseforge: CurseForge = field(default_factory=CurseForge)
     stats: StatsConfig = field(default_factory=StatsConfig)

@@ -30,6 +30,10 @@ minecraft:
   service_name: ""  # Systemd service name (auto-populated if left empty)
   service_path: "/etc/systemd/system"  # Path to systemd service files
 
+curseforge:
+  api_key: ""
+  base_url: https://api.curseforge.com
+
 stats:
   csv_interval_min: 5  # How often to log player stats (in minutes)
   csv_path: "_data/stats.csv"  # Path to the CSV file storing stats

@@ -45,6 +45,7 @@ async def load_config() -> bool:
                 modpack_url=data["minecraft"].get("modpack_url", ""),
                 restart=RestartConfig(**data["minecraft"].get("restart", {})),
             ),
+            curseforge=CurseForge(**data["curseforge"]),
             stats=StatsConfig(**data["stats"]),
         )
     except Exception as e:
@@ -75,6 +76,7 @@ def save_config():
                     "backup": config.minecraft.backup.__dict__,
                     "restart": config.minecraft.restart.__dict__,
                 },
+                "curseforge": config.curseforge.__dict__,
                 "stats": config.stats.__dict__,
             },
             file,
