@@ -62,21 +62,26 @@ def close_rcon_connection():
             log.error(f"RCON: Error while disconnecting: {e}")
         mcr_connection = None
 
-def get_player_count_from_rcon():
-    """Get the current online player count from 'list'."""
+import re
+
+def get_players():
+    """Get the list of current online players from 'list' command."""
     global mcr_connection
     ensure_rcon_connection()
+    
     if mcr_connection is None:
-        return None
+        return None  # Return None if connection is unavailable
     try:
         response = mcr_connection.command("list")
-        match = re.search(r"There are (\d+) of a max of \d+ players online", response)
+        match = re.search(r"There are \d+ of a max of \d+ players online: (.+)", response)
+        
         if match:
-            return int(match.group(1))
+            players = match.group(1).split(", ")
+            return players if players != [""] else []  # Handle case where no players are listed
+        return []  # No players online
+
     except Exception as e:
         log.error(f"RCON: Command error: {e}")
         close_rcon_connection()
-    return None
-
-
+        return None
 

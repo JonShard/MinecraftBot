@@ -31,7 +31,6 @@ async def load_state() -> bool:
         state = State()
         return True
     try:
-        log.debug("Loading state...")
         with open(STATE_FILE, "r") as file:
             data = yaml.safe_load(file)
             state = State(
@@ -49,7 +48,6 @@ async def load_state() -> bool:
 
 def save_state():
     global state
-    log.debug("Saving state...")
     """
     Save the current state to a YAML file.
     """
@@ -65,6 +63,5 @@ def save_state():
                 file,
                 default_flow_style=False
             )
-        log.debug("State saved successfully.")
     except Exception as e:
         log.error(f"Failed to save state: {e}")

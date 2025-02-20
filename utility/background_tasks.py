@@ -5,6 +5,7 @@ import discord
 from discord.ext import tasks
 
 import config.config as cfg
+import state.state as st
 from utility.logger import get_logger
 log = get_logger()
 
@@ -30,15 +31,19 @@ async def update_bot_presence_task(bot):
     try:
         # Check if the service is running without verifying the service file and reloading config every few seconds
         if await ops_helpers.is_service_running(True):
-            count = rcon_helpers.get_player_count_from_rcon()
+            players = rcon_helpers.get_players()
 
         # If RCON fails to get a count, set status to offline
-        if count is None:
+        if players is None:
             status_message = "Server is offline"
         else:
             # Update global player count
-            globals.player_count = count
-
+            globals.player_count = len(players)
+            # Add player to state lists while keeping names unique
+            st.state.mc_players_ever = list(set(st.state.mc_players_ever) | set(players)) 
+            st.state.mc_players_today = list(set(st.state.mc_players_today) | set(players)) 
+            st.save_state()
+            
             # Read the log file and check for external chunk saving or lag
             with open(cfg.config.minecraft.log_file_path, 'r') as log_file:
                 log_contents = log_file.read()
@@ -158,3 +163,10 @@ async def restart_task():
                 await ops_helpers.async_create_backup("cold_backup")
             await ops_helpers.async_service_control("start")
                 
+@tasks.loop(minutes=1)
+async def clear_daily_state():
+    """Removes players in players_today stat from state"""
+    now = datetime.datetime.now()
+    if now.hour == 0 and now.minute == 0: # Run at midnight
+        st.state.mc_players_today.clear()
+        st.save_state()

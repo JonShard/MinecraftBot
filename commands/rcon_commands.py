@@ -7,6 +7,7 @@ import discord
 from discord import app_commands
 
 import config.config as cfg
+import state.state as st
 from utility.logger import get_logger
 log = get_logger()
 import utility.helper_functions as helpers
@@ -55,44 +56,11 @@ class RconCommands(app_commands.Group):
         rcon_helpers.ensure_rcon_connection()
         if rcon_helpers.mcr_connection is None:
             # We'll still try to show the other info even if RCON is down
-            player_count_now = 0
             currently_online = []
+            player_count_now = 0
         else:
-            try:
-                list_response = rcon_helpers.mcr_connection.command("list")
-                match = re.search(r"There are (\d+) of a max of \d+ players online:?\s*(.*)", list_response)
-                if match:
-                    player_count_now = int(match.group(1))
-                    online_names_str = match.group(2).strip()
-                    if online_names_str:
-                        currently_online = [name.strip() for name in online_names_str.split(",")]
-                    else:
-                        currently_online = []
-                else:
-                    player_count_now = 0
-                    currently_online = []
-            except Exception as e:
-                rcon_helpers.close_rcon_connection()
-                log.error(f"Failed to retrieve current player list: {e}")
-                player_count_now = 0
-                currently_online = []
-
-        # ─── 3) PLAYERS WHO JOINED TODAY ───
-        try:
-            players_today_cmd = (
-                f"(zcat {cfg.config.minecraft.logs_dir}/$(date +'%Y-%m'-%d)*.log.gz && cat {os.path.join(cfg.config.minecraft.logs_dir, 'latest.log')}) "
-                f"| grep joined | awk '{{print $6}}' | sort -u"
-            )
-            players_today_output = subprocess.check_output([players_today_cmd], shell=True).decode(errors="ignore").strip()
-            if players_today_output:
-                players_today_list = players_today_output.split("\n")
-            else:
-                players_today_list = []
-        except Exception as e:
-            log.error(f"Error retrieving players who joined today: {e}")
-            players_today_list = []
-
-        players_today_count = len(players_today_list)
+            currently_online = rcon_helpers.get_players()
+            player_count_now = len(currently_online)
 
         # ─── 4) BUILD TEXT OUTPUT ───
 
@@ -106,14 +74,14 @@ class RconCommands(app_commands.Group):
         )
 
         # Code block #1: Players Joined Today
-        if players_today_count == 0:
+        if len(st.state.mc_players_today) == 0:
             joined_today_lines = "no players today"
         else:
-            joined_today_lines = "\n".join(players_today_list)
+            joined_today_lines = "\n".join(st.state.mc_players_today)
 
         code_block_today = (
             "```text\n"
-            f"■■■■ Players Joined Today ({players_today_count}) ■■■■\n"
+            f"■■■■ Players Joined Today ({len(st.state.mc_players_today)}) ■■■■\n"
             f"{joined_today_lines}\n"
             "```"
         )
