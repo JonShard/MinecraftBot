@@ -51,19 +51,22 @@ for filename in os.listdir(commands_dir):
 
 async def start_tasks():
     import utility.background_tasks as tasks
-    tasks.update_bot_presence_task.start(bot) # bot.loop.create_task(tasks.update_bot_presence_task(bot))
+    tasks.update_bot_presence_task.start(bot)
     tasks.player_count_logger_task.start() # Start the new CSV logger in the background
     tasks.backup_task.start()
     tasks.restart_task.start()
+    tasks.clear_daily_state.start()
+    tasks.notify_player_join.start(bot)
     
 # ──────────────────────────
 # Bot Lifecycle
 # ──────────────────────────
 @bot.event
 async def on_ready():
+    # Generate state.yaml if it doesn't already exist
     await st.load_state()
-    log.info(st.state.mc_players_ever)
     st.save_state()
+    
     try:
         log.info("Attempting to sync commands...")
         synced_commands = await bot.tree.sync()        

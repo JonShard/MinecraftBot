@@ -32,10 +32,11 @@ async def update_bot_presence_task(bot):
         # Check if the service is running without verifying the service file and reloading config every few seconds
         if await ops_helpers.is_service_running(True):
             players = rcon_helpers.get_players()
-
+        
         # If RCON fails to get a count, set status to offline
         if players is None:
             status_message = "Server is offline"
+            players = []
         else:
             # Update global player count
             globals.player_count = len(players)
@@ -170,3 +171,32 @@ async def clear_daily_state():
     if now.hour == 0 and now.minute == 0: # Run at midnight
         st.state.mc_players_today.clear()
         st.save_state()
+        
+tracked_players = []
+@tasks.loop(minutes=1)
+async def notify_player_join(bot):
+    """Uses state to send DM to users who as subscriberd to being updated when a player joins"""
+    global tracked_players
+    # Check if any new players have joined
+    players = rcon_helpers.get_players()    
+    if players is None:
+        return
+    new_players = []
+    for player in players:
+        if player not in tracked_players:
+            new_players.append(player)
+            
+    # If new players notify discord users (in a list if many new players: 'user1, user2, and user3 joined')
+    if new_players:
+        joined_players = ", ".join(new_players[:-1]) + " and " + new_players[-1] if len(new_players) > 1 else new_players[0]
+        notified_count = 0
+        for user_id in st.state.join_subed_users:
+            log.debug(f"Notifying user_id {user_id} that player(s) {new_players} joined")
+            user = await bot.fetch_user(user_id)
+            await user.send(f"📢 `{joined_players}` joined the Minecraft Server")
+            notified_count += 1
+        log.info(f"Player {player} joined. Notified {notified_count} users")
+
+    
+    # TODO: Notification signup command
+    # TODO: update CSV to only log players_today when increased, graph must be compatible
