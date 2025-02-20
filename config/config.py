@@ -15,14 +15,13 @@ async def load_config() -> bool:
     global config
     """
     Load the configuration from a YAML file into a Config dataclass.
-    Args:
-        file_path (str): Path to the YAML file.
     Returns:
         Config: The loaded configuration.
     """
     if not os.path.exists(CONFIG_FILE):
         log.error(f"Config file {CONFIG_FILE} not found. Using defaults.")
         config = Config()
+        return True
     try:
         log.debug("Loading config...")
         with open(CONFIG_FILE, "r") as file:
@@ -59,9 +58,6 @@ def save_config():
     global config
     """
     Save the Config dataclass to a YAML file.
-    Args:
-        config (Config): The configuration to save.
-        file_path (str): Path to the YAML file.
     """
     with open(CONFIG_FILE, "w") as file:
         yaml.dump(
