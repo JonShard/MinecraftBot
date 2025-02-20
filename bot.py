@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 
 import config.config as cfg
+import state.state as st
 from utility.logger import get_logger
 log = get_logger()
 
@@ -60,6 +61,9 @@ async def start_tasks():
 # ──────────────────────────
 @bot.event
 async def on_ready():
+    await st.load_state()
+    log.info(st.state.mc_players_ever)
+    st.save_state()
     try:
         log.info("Attempting to sync commands...")
         synced_commands = await bot.tree.sync()        
