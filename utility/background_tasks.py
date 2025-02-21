@@ -197,6 +197,4 @@ async def notify_player_join(bot):
             notified_count += 1
         log.info(f"Player {player} joined. Notified {notified_count} users")
 
-    
-    # TODO: Notification signup command
-    # TODO: update CSV to only log players_today when increased, graph must be compatible
+        # TODO: update CSV to only log players_today when increased, graph must be compatible

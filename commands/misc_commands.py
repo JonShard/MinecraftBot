@@ -1,6 +1,5 @@
 
 import os
-import requests
 import re
 import discord
 from discord.embeds import Embed
@@ -35,13 +34,16 @@ def register_commands(bot):
             "Commands with a 🔒 can only be used by whitelisted admins\n"
             
             "### **Modpack Commands**\n"
-            "- 📥  **/modpack**: Provides the modpack download link and server's public IP.\n\n"
+            "- 📥  **/modpack info**: Provides the modpack download link and server's public IP.\n\n"
             
             "### 🧑‍🤝‍🧑 **Player & Chat Commands**\n"
             "- 👥  **/rcon players**: Show who is online, who has joined today, and how many joined yesterday.\n"
             "- 💬  **/rcon chat**: Show a single chat window for the last 10 lines.\n"
             "- 🗣️  **/rcon say**: Send a chat message to the server from Discord.\n\n"
-
+            
+            "### **Notifications**\n"
+            "- 🔔  **/notifications**: Show a menu where you can opt-in and out of different kinds of notifications\n\n"
+            
             "### 🖥️ **Minecraft Server Admin**\n"
             "- 🌤️  **/rcon weather**: Set the weather in the Minecraft world.\n"
             "- 🔪  **/rcon kill** 🔒: Kill specific types of entities in the Minecraft world.\n"
