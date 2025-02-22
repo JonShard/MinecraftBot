@@ -7,7 +7,7 @@ from config.root_config import *
 from utility.logger import get_logger
 log = get_logger()
 
-STATE_FILE = "state.yaml"
+STATE_FILE = "_data/state.yaml"
 state = None
 
 @dataclass

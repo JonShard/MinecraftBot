@@ -37,6 +37,7 @@ class SettingsButton(ui.Button):
 
     async def callback(self, interaction: discord.Interaction):
         self.state = not self.state
+        # Fetch the original message (the one sent with send_message)
         if self.state: # User subscribing
             if self.option == OPTION_JOINS and not is_user_join_subed(self.user_id):
                 st.state.join_subed_users.append(self.user_id)
@@ -49,7 +50,7 @@ class SettingsButton(ui.Button):
                         "Please select your MC username so you won't get notifications about yourself:\n*(If you're not in the list please join the MC server and try again)*", 
                         view = UsernameSelectView(interaction.user.id, options)
                      )
-                await interaction.followup.edit_message(view=SettingsView(interaction.user.id))
+                await interaction.message.edit(view=SettingsView(interaction.user.id))
             elif self.option == OPTION_ERRORS:
                 st.state.error_subed_users.append(self.user_id)
                 await interaction.response.edit_message(view=SettingsView(interaction.user.id))
@@ -92,13 +93,16 @@ def register_commands(bot):
         await helpers.log_interaction(interaction)
         if interaction.guild:
             await interaction.response.send_message("Check your DMs! 📩", ephemeral=True)
-        else:
-            await interaction.response.defer(ephemeral=True)
-        
-        message = await interaction.user.send(
+            message = await interaction.user.send(
                 "Please select which events you would like notifications about 🔔", 
                 view=SettingsView(interaction.user.id)
             )
+        else:
+            await interaction.response.send_message(
+                "Please select which events you would like notifications about 🔔",
+                view=SettingsView(interaction.user.id)
+            )
+            message = await interaction.original_response()
 
         # Attach the message to the view so it can be deleted later
         view = SettingsView(interaction.user.id, message)
