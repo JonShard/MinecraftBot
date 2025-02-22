@@ -12,8 +12,8 @@ state = None
 
 @dataclass
 class State:
-    join_subed_users: List[int] = field(default_factory=list)
-    error_subed_users: List[int] = field(default_factory=list)
+    join_subed_users: List[str] = field(default_factory=list)
+    error_subed_users: List[str] = field(default_factory=list)
     mc_players_today: List[str] = field(default_factory=list)
     mc_players_ever: List[str] = field(default_factory=list)
     

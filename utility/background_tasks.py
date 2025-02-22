@@ -156,6 +156,7 @@ async def backup_task():
 
 @tasks.loop(minutes=1)
 async def restart_task():
+    log.debug("Running Task: restart_task")
     current_time = datetime.datetime.now().strftime("%H:%M") # Get current system time in HH:MM format, Ex: 22:33
     for time in cfg.config.minecraft.restart.times:
         if current_time == time:
@@ -167,6 +168,7 @@ async def restart_task():
 @tasks.loop(minutes=1)
 async def clear_daily_state():
     """Removes players in players_today stat from state"""
+    log.debug("Running Task: clear_daily_state")
     now = datetime.datetime.now()
     if now.hour == 0 and now.minute == 0: # Run at midnight
         st.state.mc_players_today.clear()
@@ -177,6 +179,7 @@ tracked_players = []
 async def notify_player_join(bot):
     """Uses state to send DM to users who as subscriberd to being updated when a player joins"""
     global tracked_players
+    log.debug("Running Task: notify_player_join")
     # Check if any new players have joined
     players = rcon_helpers.get_players()    
     if players is None:
@@ -190,9 +193,13 @@ async def notify_player_join(bot):
     if new_players:
         joined_players = ", ".join(new_players[:-1]) + " and " + new_players[-1] if len(new_players) > 1 else new_players[0]
         notified_count = 0
-        for user_id in st.state.join_subed_users:
-            log.debug(f"Notifying user_id {user_id} that player(s) {new_players} joined")
-            user = await bot.fetch_user(user_id)
+        for user_info in st.state.join_subed_users:
+            user_id, username = user_info.split('.')
+            if username in new_players and len(new_players) == 1:
+                log.debug(f"Ignoring self-notify user {username} (ID: {user_id}) that player(s) {new_players} joined,")
+                continue
+            log.debug(f"Notifying user {username} (ID: {user_id}) that player(s) {new_players} joined")
+            user = await bot.fetch_user(int(user_id))
             await user.send(f"📢 `{joined_players}` joined the Minecraft Server")
             notified_count += 1
         log.info(f"Player {player} joined. Notified {notified_count} users")

@@ -221,9 +221,6 @@ class BackupCommands(app_commands.Group):
 
 
 
-
-
-
         class BackupDropdown(discord.ui.Select):
             def __init__(self):
                 super().__init__(placeholder="Select a backup to restore", options=options)
