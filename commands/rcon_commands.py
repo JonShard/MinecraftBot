@@ -53,13 +53,13 @@ class RconCommands(app_commands.Group):
             players_yesterday_count = 0
 
         # ─── 2) CURRENT ONLINE PLAYERS VIA RCON ───
-        rcon_helpers.ensure_rcon_connection()
+        await rcon_helpers.ensure_rcon_connection()
         if rcon_helpers.mcr_connection is None:
             # We'll still try to show the other info even if RCON is down
             currently_online = []
             player_count_now = 0
         else:
-            currently_online = rcon_helpers.get_players()
+            currently_online = await rcon_helpers.get_players()
             player_count_now = len(currently_online)
 
         # ─── 4) BUILD TEXT OUTPUT ───
@@ -140,7 +140,7 @@ class RconCommands(app_commands.Group):
         """
         await helpers.log_interaction(interaction)
 
-        rcon_helpers.ensure_rcon_connection()
+        await rcon_helpers.ensure_rcon_connection()
         if rcon_helpers.mcr_connection is None:
             await interaction.response.send_message("Could not connect to RCON. Try again later.", ephemeral=True)
             return
@@ -154,11 +154,11 @@ class RconCommands(app_commands.Group):
                 ephemeral=False
             )
         except Exception as e:
-            rcon_helpers.close_rcon_connection()
+            await rcon_helpers.close_rcon_connection()
             await interaction.response.send_message(f"Failed to send message: {e}", ephemeral=True)
             return
 
-        await helpers.repost_chat_window(interaction)
+        await helpers.repost_chat_window(self.bot, interaction)
 
 
 
@@ -180,7 +180,7 @@ class RconCommands(app_commands.Group):
         await helpers.log_interaction(interaction)
         await interaction.response.defer(ephemeral=False, thinking=True)
 
-        rcon_helpers.ensure_rcon_connection()
+        await rcon_helpers.ensure_rcon_connection()
         if rcon_helpers.mcr_connection is None:
             await interaction.followup.send("Could not connect to RCON. Try again later.", ephemeral=True)
             return
@@ -242,7 +242,7 @@ class RconCommands(app_commands.Group):
                 ephemeral=False
             )
         except Exception as e:
-            rcon_helpers.close_rcon_connection()
+            await rcon_helpers.close_rcon_connection()
             await interaction.followup.send(f"Failed to set weather: {e}", ephemeral=True)
 
 
@@ -270,7 +270,7 @@ class RconCommands(app_commands.Group):
             return  # Stop execution if the user is not authorized
   
 
-        rcon_helpers.ensure_rcon_connection()
+        await rcon_helpers.ensure_rcon_connection()
         if rcon_helpers.mcr_connection is None:
             await interaction.followup.send("Could not connect to RCON. Try again later.", ephemeral=True)
             return
@@ -327,7 +327,7 @@ class RconCommands(app_commands.Group):
             await interaction.followup.send(final_response, ephemeral=False)
 
         except Exception as e:
-            rcon_helpers.close_rcon_connection()
+            await rcon_helpers.close_rcon_connection()
             await interaction.followup.send(f"Failed to execute kill command: {e}", ephemeral=True)
 
 
@@ -342,7 +342,7 @@ class RconCommands(app_commands.Group):
             return  # Stop execution if the user is not authorized
 
 
-        rcon_helpers.ensure_rcon_connection()
+        await rcon_helpers.ensure_rcon_connection()
         if rcon_helpers.mcr_connection is None:
             await interaction.response.send_message("Could not connect to RCON. Try again later.", ephemeral=True)
             return
@@ -354,7 +354,7 @@ class RconCommands(app_commands.Group):
                 reply += f"\nResponse: ```{response}```"
             await interaction.response.send_message(reply, ephemeral=False)
         except Exception as e:
-            rcon_helpers.close_rcon_connection()
+            await rcon_helpers.close_rcon_connection()
             await interaction.response.send_message(f"RCON command failed: {e}", ephemeral=True)
 
 

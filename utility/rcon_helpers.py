@@ -13,7 +13,7 @@ mcr_connection = None
 # RCON Utilities
 # ──────────────────────────
 
-def ensure_rcon_connection():
+async def ensure_rcon_connection():
     """Ensure we have a persistent RCON connection."""
     global mcr_connection
 
@@ -52,7 +52,7 @@ def ensure_rcon_connection():
         log.error(f"RCON: Failed to connect: {e}")
         mcr_connection = None
 
-def close_rcon_connection():
+async def close_rcon_connection():
     """Close the RCON connection if open."""
     global mcr_connection
     if mcr_connection:
@@ -62,12 +62,11 @@ def close_rcon_connection():
             log.error(f"RCON: Error while disconnecting: {e}")
         mcr_connection = None
 
-import re
 
-def get_players():
+async def get_players():
     """Get the list of current online players from 'list' command."""
     global mcr_connection
-    ensure_rcon_connection()
+    await ensure_rcon_connection()
     
     if mcr_connection is None:
         return None  # Return None if connection is unavailable
@@ -82,6 +81,6 @@ def get_players():
 
     except Exception as e:
         log.error(f"RCON: Command error: {e}")
-        close_rcon_connection()
+        await close_rcon_connection()
         return None
 

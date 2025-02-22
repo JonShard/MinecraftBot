@@ -31,7 +31,7 @@ async def update_bot_presence_task(bot):
     try:
         # Check if the service is running without verifying the service file and reloading config every few seconds
         if await ops_helpers.is_service_running(True):
-            players = rcon_helpers.get_players()
+            players = await rcon_helpers.get_players()
         
         # If RCON fails to get a count, set status to offline
         if players is None:
@@ -181,7 +181,7 @@ async def notify_player_join(bot):
     global tracked_players
     log.debug("Running Task: notify_player_join")
     # Check if any new players have joined
-    players = rcon_helpers.get_players()    
+    players = await rcon_helpers.get_players()    
     if players is None:
         return
     new_players = []

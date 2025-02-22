@@ -215,20 +215,19 @@ async def post_or_refresh_chat_window(bot, channel: discord.abc.Messageable):
     Post a fresh code block, and start a background task
     to update it for 5 minutes.
     """
-    channel_id = channel.id
 
     # 1) Clear out old window if it exists
-    if channel_id in globals.chat_windows:
-        old_data = globals.chat_windows[channel_id]
+    if channel.id in globals.chat_windows:
+        old_data = globals.chat_windows[channel.id]
         try:
             await old_data["message"].delete()
         except Exception as e:
-            log.error(f"Could not delete old chat window in channel {channel_id}: {e}")
+            log.error(f"Could not delete old chat window in channel {channel.id}: {e}")
 
         # Stop the old task
         if old_data["task"]:
             old_data["task"].cancel()
-        del globals.chat_windows[channel_id]
+        del globals.chat_windows[channel.id]
 
     # 2) Create a new message
     lines = get_recent_chat_lines(cfg.config.bot.chat.lines)
@@ -239,9 +238,9 @@ async def post_or_refresh_chat_window(bot, channel: discord.abc.Messageable):
 
     # 3) Setup state in CHAT_WINDOWS
     expires_at = asyncio.get_event_loop().time() + cfg.config.bot.chat.duration_min * 60 # 60 sec in a minute
-    task = bot.loop.create_task(tasks.background_chat_update_task(channel_id))
+    task = bot.loop.create_task(tasks.background_chat_update_task(channel.id))
 
-    globals.chat_windows[channel_id] = {
+    globals.chat_windows[channel.id] = {
         "message": new_msg,
         "expires_at": expires_at,
         "task": task
@@ -341,14 +340,14 @@ def get_recent_chat_lines(limit=10):
     return final
 
 
-async def repost_chat_window(interaction):
+async def repost_chat_window(bot, interaction):
         # "Move" the chat window if it exists in this channel
         channel_id = interaction.channel.id
         if channel_id in globals.chat_windows:
             # Extend the timer (reset 5-minute countdown)
             globals.chat_windows[channel_id]["expires_at"] = asyncio.get_event_loop().time() + cfg.config.bot.chat.duration_min * 60 # 60 sec in a minute
             # Delete and repost to put it at the bottom
-            await post_or_refresh_chat_window(interaction.channel)
+            await post_or_refresh_chat_window(bot, interaction.channel)
             log.info(f"Chat window moved to bottom after /say in channel {channel_id}.")
 
 
