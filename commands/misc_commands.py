@@ -87,7 +87,7 @@ def register_commands(bot):
 
         # Send response
         if log_lines:
-            response = "\n".join(log_lines[:10])  # Send first 10 lines to avoid spam
+            response = "\n".join(log_lines[-20:])  # Send first N lines to avoid spam
         else:
             response = "No audit log entries found."
 
