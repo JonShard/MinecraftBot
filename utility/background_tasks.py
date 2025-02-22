@@ -174,6 +174,7 @@ async def clear_daily_state():
         st.state.mc_players_today.clear()
         st.save_state()
         
+        
 tracked_players = []
 @tasks.loop(minutes=1)
 async def notify_player_join(bot):
@@ -198,10 +199,98 @@ async def notify_player_join(bot):
             if username in new_players and len(new_players) == 1:
                 log.debug(f"Ignoring self-notify user {username} (ID: {user_id}) that player(s) {new_players} joined,")
                 continue
-            log.debug(f"Notifying user {username} (ID: {user_id}) that player(s) {new_players} joined")
+            log.debug(f"Notifying user {username} (userID: {user_id}) that player(s) {new_players} joined")
             user = await bot.fetch_user(int(user_id))
             await user.send(f"📢 `{joined_players}` joined the Minecraft Server")
             notified_count += 1
         log.info(f"Player {player} joined. Notified {notified_count} users")
 
-        # TODO: update CSV to only log players_today when increased, graph must be compatible
+
+
+
+# Global state for tracking lag history and cooldown
+lag_history = []  # Stores lag seconds per minute (last 20 minutes)
+notification_cooldown_until = None  # Time until we allow the next notification
+
+@tasks.loop(minutes=cfg.config.notifications.check_last_min)
+async def notify_server_errors(bot):
+    """
+    Uses state to send a DM to users subscribed to lag updates.
+    The function reads the Minecraft server log, checks lag history over the last N minutes, 
+    and sends notifications if cumulative lag exceeds the threshold.
+
+    - Stores up to N minutes of lag data.
+    - Notifies users if cumulative lag exceeds the threshold.
+    - Implements a cooldown of N minutes between notifications.
+    """
+    global notification_cooldown_until, lag_history
+    log.debug("Task notify_server_errors: Running Task")
+    now = datetime.datetime.now()
+    one_minute_ago = now - datetime.timedelta(minutes=cfg.config.notifications.check_last_min)# Calculate time 1 minute ago to filter logs
+    
+    # Check if notifications are enabled
+    if not cfg.config.notifications.errors_enabled:
+        log.debug("Task notify_server_errors: Notifications are disabled.")
+        return
+    
+    # Check cooldown before proceeding
+    if notification_cooldown_until and now < notification_cooldown_until:
+        log.debug(f"Task notify_server_errors: Skipping check. Notifications on cooldown until {notification_cooldown_until}.")
+        return
+
+    # Read log file
+    with open(cfg.config.minecraft.log_file_path, 'r') as log_file:
+        log_contents = log_file.read()
+
+    lag_line_regex = re.compile(
+        r'^\[(?P<day>\d{1,2})(?P<month>[a-zA-Z]{3})\.?(?P<year>\d{4}) (?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})\.(?P<millis>\d+)] .*?Running (?P<ms>\d+)ms or \d+ ticks behind'
+    )
+
+    # Parse log lines for lag entries within the last minute
+    total_lag_this_minute = 0  
+
+    for line in log_contents.splitlines():
+        match = lag_line_regex.match(line)
+        if match:
+            # Extract matched timestamp
+            log_day = match.group("day")
+            log_month = match.group("month").capitalize()
+            log_year = match.group("year")
+            log_time = f"{match.group('hour')}:{match.group('minute')}:{match.group('second')}.{match.group('millis')}"
+
+            log_timestamp_str = f"{log_day}{log_month}{log_year} {log_time}"
+            log_timestamp = datetime.datetime.strptime(log_timestamp_str, "%d%b%Y %H:%M:%S.%f")
+
+            # Check if the entry is within the last minute
+            if log_timestamp >= one_minute_ago:
+                lag_ms = int(match.group("ms"))
+                total_lag_this_minute += lag_ms / 1000  # Convert ms to seconds
+
+    # Add the current minute's lag to history
+    lag_history.append(total_lag_this_minute)
+
+    # Keep only the last lag_window_minutes of lag data
+    if len(lag_history) > cfg.config.notifications.lag_window_min:
+        lag_history.pop(0)
+
+    # Calculate total lag over the last N minutes
+    total_lag_in_window = sum(lag_history)
+
+    log.debug(f"Task notify_server_errors: Total lag last {cfg.config.notifications.lag_window_min} min: {total_lag_in_window} sec (Threshold: {cfg.config.notifications.threshold_sec})")
+
+    # If cumulative lag exceeds the threshold, notify users
+    if total_lag_in_window > cfg.config.notifications.threshold_sec:
+        notified_count = 0
+        for user_id in st.state.error_subed_users:
+            user = await bot.fetch_user(int(user_id))
+            await user.send(
+                f"🚨 The Minecraft Server is lagging!\n"
+                f" In the last `{cfg.config.notifications.lag_window_min}` min, the MC server has been running `{total_lag_in_window:.1f}` behind!"
+            )
+            log.debug(f"Notifying lag userID: {user_id} that the server is lagging")
+            notified_count += 1
+
+        log.info(f"Server is lagging. Notified {notified_count} users")
+
+        # Set a cooldown of N minutes before the next notification
+        notification_cooldown_until = now + datetime.timedelta(minutes=cfg.config.notifications.notification_cooldown_min)

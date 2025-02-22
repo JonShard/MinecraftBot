@@ -34,6 +34,13 @@ curseforge:
   api_key: ""
   base_url: https://api.curseforge.com
 
+notifications:
+  errors_enabled: True
+  check_last_min: 1 
+  threshold_sec: 10 # if there has been 10sec of lag in th last 10min, send a notification and mute for 30min
+  lag_window_min: 10
+  notification_cooldown_min: 30
+
 stats:
   csv_interval_min: 5  # How often to log player stats (in minutes)
   csv_path: "_data/stats.csv"  # Path to the CSV file storing stats

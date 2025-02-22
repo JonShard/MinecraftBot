@@ -46,6 +46,7 @@ async def load_config() -> bool:
             ),
             curseforge=CurseForge(**data["curseforge"]),
             stats=StatsConfig(**data["stats"]),
+            notifications=NotificationConfig(**data["notifications"]),
         )
     except Exception as e:
         config = Config()
@@ -74,6 +75,7 @@ def save_config():
                 },
                 "curseforge": config.curseforge.__dict__,
                 "stats": config.stats.__dict__,
+                "notifications": config.notifications.__dict__,
             },
             file,
             default_flow_style=False,

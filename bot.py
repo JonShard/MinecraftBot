@@ -57,6 +57,7 @@ async def start_tasks():
     tasks.restart_task.start()
     tasks.clear_daily_state.start()
     tasks.notify_player_join.start(bot)
+    tasks.notify_server_errors.start(bot)
     
 # ──────────────────────────
 # Bot Lifecycle

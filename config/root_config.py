@@ -77,9 +77,20 @@ class StatsConfig:
     csv_path: str = "_data/stats.csv"
     player_count_png: str = "_data/stat_players.png"
 
+
+@dataclass
+class NotificationConfig:
+    errors_enabled: bool = True
+    check_last_min: int = 1
+    threshold_sec: int = 10
+    lag_window_min: int = 10
+    notification_cooldown_min: int = 30
+
+
 @dataclass
 class Config:
     bot: BotConfig = field(default_factory=BotConfig)
     minecraft: MinecraftConfig = field(default_factory=MinecraftConfig)
     curseforge: CurseForge = field(default_factory=CurseForge)
     stats: StatsConfig = field(default_factory=StatsConfig)
+    notifications: NotificationConfig = field(default_factory=NotificationConfig)
