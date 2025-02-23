@@ -60,8 +60,8 @@ def register_commands(bot):
 
             "### 🛠️ **Utility Commands**\n"
             "- 📊  **/status**: Show the Minecraft server status.\n"
-            "- 📰  **/logs**: Show recent MC server log\n"
-            "- 💥  **/crashes**: Show and retrieve recent crash reports.\n"
+            "- 📰  **/logs**: Show and download recent MC server log\n"
+            "- 💥  **/crashes**: Show and download recent crash reports.\n"
             "- 🎛️  **/server**: Control or check the MC server instance (stop, start, restart, status).\n"
             "- 🔌  **/reboot** 🔒: Reboot the physical machine.\n"
             "- 🗑️  **/wipe** 🔒: Delete the world. (Confirm Yes/No)\n\n"

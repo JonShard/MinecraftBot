@@ -414,7 +414,7 @@ def register_commands(bot):
             super().__init__(timeout=60)
             self.add_item(CrashDropdown(interaction, crash_files))
             
-    @bot.tree.command(name="crashes", description="Show and retrieve recent crash reports")
+    @bot.tree.command(name="crashes", description="Show and download recent crash reports")
     async def slash_crashes(interaction: discord.Interaction):
         try:
             crash_files = sorted(
@@ -427,7 +427,7 @@ def register_commands(bot):
                 return
 
             view = CrashView(interaction, crash_files)
-            await interaction.response.send_message("Please select a crash report:", view=view, ephemeral=True)
+            await interaction.response.send_message("Please select one of the last {discord_dropdown_limit} crash reports:", view=view, ephemeral=True)
             
         except Exception as e:
             await interaction.response.send_message(
