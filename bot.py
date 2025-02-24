@@ -53,11 +53,13 @@ async def start_tasks():
     import utility.background_tasks as tasks
     tasks.update_bot_presence_task.start(bot)
     tasks.player_count_logger_task.start() # Start the new CSV logger in the background
+    tasks.update_lag_history.start()
     tasks.backup_task.start()
     tasks.restart_task.start()
     tasks.clear_daily_state.start()
     tasks.notify_player_join.start(bot)
     tasks.notify_server_errors.start(bot)
+    tasks.generate_lag_graph.start()
     
 # ──────────────────────────
 # Bot Lifecycle

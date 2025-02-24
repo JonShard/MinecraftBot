@@ -76,7 +76,7 @@ class StatsConfig:
     csv_interval_min: int = 5
     csv_path: str = "_data/stats.csv"
     player_count_png: str = "_data/stat_players.png"
-
+    lag_png: str = "_data/stat_counts.png"
 
 @dataclass
 class NotificationConfig:
@@ -85,7 +85,6 @@ class NotificationConfig:
     threshold_sec: int = 10
     lag_window_min: int = 10
     notification_cooldown_min: int = 30
-
 
 @dataclass
 class Config:

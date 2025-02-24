@@ -182,10 +182,14 @@ def register_commands(bot):
         except Exception as e:
             output = f"An error occurred: {str(e)}"
 
+        helpers.generate_lag_graph()
+
         # Respond to the slash command so everyone can see
-        await interaction.response.send_message(output, ephemeral=False)
-
-
+        await interaction.response.send_message(
+            output, 
+            ephemeral=True, 
+            file=discord.File(cfg.config.stats.lag_png, filename=cfg.config.stats.lag_png)
+        )
 
 
     @bot.tree.command(name="server", description="🔒 Control or check the MC server instance (stop, start, restart, status).")

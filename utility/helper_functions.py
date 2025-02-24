@@ -108,7 +108,7 @@ def write_player_count_csv(row):
         writer.writerow(row)
 
 
-def generate_player_count_graph():
+def generate_player_count_graph(graph_window_days = 30):
     """
     Reads the CSV (Timestamp, PlayerCount), groups by day to calculate daily max,
     and plots a column chart (bar chart) saved to PLAYER_COUNT_PNG with a dark theme.
@@ -129,6 +129,9 @@ def generate_player_count_graph():
                 continue
             timestamp_str, count_str = row[0], row[1]
             try:
+                # Skip data older than a month
+                if (datetime.datetime.now() - datetime.datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M")).days > graph_window_days:
+                    continue
                 dt = datetime.datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M")
                 count = int(count_str)
             except ValueError:
@@ -205,6 +208,62 @@ def generate_player_count_graph():
     log.info(f"Saved bar chart to {cfg.config.stats.player_count_png}.")
 
 
+
+def generate_lag_graph():
+    """
+    Plots a bar chart of lag data from globals.lag_history,
+    showing seconds of lag per minute over time.
+    The X-axis represents time in hours ago format.
+    The Y-axis represents lag in seconds.
+    """
+
+    now = datetime.datetime.now()
+    MAX_MINUTES = 180  # Rolling window of last 6 hours
+
+    # Ensure a full 6-hour window (one timestamp per minute)
+    timestamps = [now - datetime.timedelta(minutes=i) for i in range(MAX_MINUTES)][::-1]
+
+    # Ensure lag data has 360 values (older data pushed left, new data added)
+    lag_data = ([0] * (MAX_MINUTES - len(globals.lag_history))) + globals.lag_history[-MAX_MINUTES:]
+
+    # Use a dark theme
+    plt.style.use("dark_background")
+
+    plt.figure(figsize=(12, 4))
+    plt.bar(range(MAX_MINUTES), lag_data, color="#ff4500", label="Lag (seconds)", zorder=3)
+
+    # Format timestamps for major ticks (every hour)
+    def format_time(ts):
+        delta = now - ts
+        hours_ago = int(delta.total_seconds() // 3600)
+        return "Now" if ts >= now - datetime.timedelta(minutes=1) else f"{hours_ago +1}h ago"
+
+    tick_positions = list(range(0, MAX_MINUTES, 60)) + [MAX_MINUTES - 1]  # Every hour + "Now" at the last position
+    tick_labels = [format_time(timestamps[i]) for i in tick_positions]
+
+    ax = plt.gca()
+
+    # Set major ticks (hourly labels) and minor ticks (every minute)
+    ax.set_xticks(tick_positions)
+    ax.set_xticklabels(tick_labels, rotation=45, color="white")
+
+    ax.set_xticks(range(MAX_MINUTES), minor=True)
+    ax.tick_params(axis="x", which="minor", length=3, color="gray")  # Small ticks for each minute
+
+    plt.yticks(color="white")
+    plt.xlabel("Time", color="white")
+    plt.ylabel("Seconds of Lag", color="white")
+    plt.title("Running Behind Errors", color="white")
+
+    # Grid and legend
+    plt.grid(True, color="gray", alpha=0.3)
+    plt.legend(facecolor="#2f3136", edgecolor="none")
+
+    plt.tight_layout()
+    plt.savefig(cfg.config.stats.lag_png)
+    plt.close()
+    log.info(f"Saved lag chart to {cfg.config.stats.lag_png}.")
+    
 
 # ──────────────────────────
 # Chat Window Logic

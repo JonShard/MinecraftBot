@@ -15,3 +15,5 @@ ext_chunk_count = 0
 #       "task": asyncio.Task
 #   }
 chat_windows = {}
+
+lag_history = []  # Stores lag seconds per minute

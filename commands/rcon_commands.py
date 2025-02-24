@@ -21,7 +21,8 @@ class RconCommands(app_commands.Group):
         self.bot = bot
 
     @app_commands.command(name="players", description="Show who is online, who has joined today and how many joined yesterday.")
-    async def slash_players(self, interaction: discord.Interaction):
+    @app_commands.describe(last_days="Optional number of days to show in the player count graph.")
+    async def slash_players(self, interaction: discord.Interaction, last_days: int = 30):
         """
         1) Counts how many players joined yesterday, how many are online now, and how many joined today.
         2) Displays that info at the top in plain text.
@@ -101,7 +102,7 @@ class RconCommands(app_commands.Group):
 
         # Update / generate graph PNG
         helpers.update_csv_player_count()
-        helpers.generate_player_count_graph()
+        helpers.generate_player_count_graph(last_days)
 
         # Final response
         reply = f"{top_text}\n{code_block_today}{code_block_online}"

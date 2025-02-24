@@ -45,3 +45,4 @@ stats:
   csv_interval_min: 5  # How often to log player stats (in minutes)
   csv_path: "_data/stats.csv"  # Path to the CSV file storing stats
   player_count_png: "_data/stat_players.png"  # Path to the player count graph image
+  lag_png: "_data/stat_lag.png"  # Path to the lag graph image
