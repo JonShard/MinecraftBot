@@ -252,27 +252,28 @@ async def update_lag_history():
 
 
 # Global state for tracking lag history and cooldown
-error_notification_cooldown_until = None  # Time until we allow the next notification
+behind_notification_cooldown_until = None  # Time until we allow the next notification
 @tasks.loop(minutes=cfg.config.notifications.check_last_min)
-async def notify_server_errors(bot):
+async def notify_server_behind(bot):
     """
     Uses state to send a DM to users subscribed to lag updates.
     The function reads the Minecraft server log, checks lag history over the last N minutes, 
     and sends notifications if cumulative lag exceeds the threshold.
     Implements a cooldown of N minutes between notifications.
     """
-    global error_notification_cooldown_until
-    log.debug("Task notify_server_errors: Running Task")
+    global behind_notification_cooldown_until
     # Check if notifications are enabled
     if not cfg.config.notifications.errors_enabled:
-        log.debug("Task notify_server_errors: Notifications are disabled.")
+        log.debug("Task notify_server_behind: Notifications are disabled.")
         return
     
     # Check cooldown before proceeding
     now = datetime.datetime.now()
-    if error_notification_cooldown_until and now < error_notification_cooldown_until:
-        log.debug(f"Task notify_server_errors: Skipping check. Notifications on cooldown until {error_notification_cooldown_until}.")
+    if behind_notification_cooldown_until and now < behind_notification_cooldown_until:
+        log.debug(f"Task notify_server_behind: Skipping check. Notifications on cooldown until {behind_notification_cooldown_until}.")
         return
+    
+    log.debug("Task notify_server_behind: Running Task")
 
     # Take a slice of the last cfg.config.notifications.lag_window_min out of globals.lag_history
     lag_history_slice = globals.lag_history[-cfg.config.notifications.lag_window_min:]
@@ -280,7 +281,7 @@ async def notify_server_errors(bot):
     # Calculate total lag over the last N minutes using the slice
     total_lag_in_window = sum(lag_history_slice)
 
-    log.debug(f"Task notify_server_errors: Total lag last {cfg.config.notifications.lag_window_min} min: {total_lag_in_window} sec (Threshold: {cfg.config.notifications.threshold_sec})")
+    log.debug(f"Task notify_server_behind: Total lag last {cfg.config.notifications.lag_window_min} min: {total_lag_in_window} sec (Threshold: {cfg.config.notifications.threshold_sec})")
 
     # If cumulative lag exceeds the threshold, notify users
     if total_lag_in_window > cfg.config.notifications.threshold_sec:
@@ -297,9 +298,43 @@ async def notify_server_errors(bot):
         log.info(f"Server is lagging. Notified {notified_count} users")
 
         # Set a cooldown of N minutes before the next notification
-        error_notification_cooldown_until = now + datetime.timedelta(minutes=cfg.config.notifications.notification_cooldown_min)
+        behind_notification_cooldown_until = now + datetime.timedelta(minutes=cfg.config.notifications.notification_cooldown_min)
 
-@tasks.loop(seconds=10)
-async def generate_lag_graph():
-    log.debug("Running Task: generate_lag_graph")
-    helpers.generate_lag_graph() # TODO: Remove
+ext_chunk_notification_cooldown_until = None  # Time until we allow the next notification
+@tasks.loop(minutes=cfg.config.notifications.check_last_min)
+async def notify_external_chunks(bot):
+    """
+    Uses state to send a DM to users subscribed to external chunk updates.
+    The function checks the global external chunk count and sends notifications if any external chunks are detected.
+    Implements a cooldown of N minutes between notifications.
+    """
+    global ext_chunk_notification_cooldown_until
+
+     # Check if notifications are enabled
+    if not cfg.config.notifications.errors_enabled:
+        log.debug("Task notify_external_chunks: Notifications are disabled.")
+        return
+    
+    # Check cooldown before proceeding
+    now = datetime.datetime.now()
+    if ext_chunk_notification_cooldown_until and now < ext_chunk_notification_cooldown_until:
+        log.debug(f"Task notify_server_behind: Skipping check. Notifications on cooldown until {behind_notification_cooldown_until}.")
+        return
+    
+    log.debug("Running Task: notify_external_chunks")
+    
+    if globals.ext_chunk_count:
+        notified_count = 0
+        for user_id in st.state.error_subed_users:
+            user = await bot.fetch_user(int(user_id))
+            await user.send(
+                f"⚠️ The Minecraft Server has external chunks!\n"
+                f"This means that the server is saving oversized chunks. This is likely causing lag and performance issues."
+            )
+            log.debug(f"Notifying lag userID: {user_id} that the server is lagging")
+            notified_count += 1
+
+        log.info(f"Server is has external chunks. Notified {notified_count} users")
+
+        # Set a cooldown of N minutes before the next notification
+        ext_chunk_notification_cooldown_until = now + datetime.timedelta(minutes=cfg.config.notifications.notification_cooldown_min)
