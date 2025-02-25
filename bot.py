@@ -50,19 +50,21 @@ for filename in os.listdir(commands_dir):
 
 
 async def start_tasks():
-    import utility.background_tasks as tasks
+    import tasks.background_tasks as bg_tasks
+    import tasks.ops_tasks as ops_tasks
+    import tasks.notification_tasks as noti_tasks
     # State gathering tasks
-    tasks.player_count_logger_task.start() # Start the new CSV logger in the background
-    tasks.update_lag_history.start()
-    tasks.clear_daily_state.start()
+    bg_tasks.player_count_logger_task.start() # Start the new CSV logger in the background
+    bg_tasks.update_lag_history.start()
+    bg_tasks.clear_daily_state.start()
     # Ops tasks
-    tasks.update_bot_presence_task.start(bot)
-    tasks.backup_task.start()
-    tasks.restart_task.start()
+    ops_tasks.update_bot_presence_task.start(bot)
+    ops_tasks.backup_task.start()
+    ops_tasks.restart_task.start()
     # Notification tasks
-    tasks.notify_player_join.start(bot)
-    tasks.notify_server_behind.start(bot)
-    tasks.notify_external_chunks.start(bot)
+    noti_tasks.notify_player_join.start(bot)
+    noti_tasks.notify_server_behind.start(bot)
+    noti_tasks.notify_external_chunks.start(bot)
     
 # ──────────────────────────
 # Bot Lifecycle

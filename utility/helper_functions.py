@@ -16,7 +16,7 @@ from utility.logger import get_logger
 log = get_logger()
 import utility.globals as globals
 
-import utility.background_tasks as tasks
+import tasks.background_tasks as tasks
 
 def get_command(interaction: discord.Interaction) -> str:
     param_values = []
