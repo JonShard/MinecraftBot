@@ -5,10 +5,11 @@ import time
 import subprocess
 
 import discord
-
 from discord import app_commands
 from discord import ui
 from utility.globals import *
+
+import state.state as st
 import config.config as cfg
 from utility.logger import get_logger
 log = get_logger()
@@ -437,3 +438,40 @@ def register_commands(bot):
             await interaction.response.send_message(
                 f"Error retrieving crash reports: {str(e)}", ephemeral=True
             )
+    
+            
+    @app_commands.command(name="reset", description="🔒 Delete the bot's data about the MC server or its Discord users")
+    @app_commands.choices(target=[
+        discord.app_commands.Choice(name="Minecraft Player Data", value="mc_players"),
+        discord.app_commands.Choice(name="Discord User Data", value="discord_users"),
+        discord.app_commands.Choice(name="Both", value="both"),
+    ])
+    async def slash_reset(interaction: discord.Interaction, target: str):
+        # Check if the user is an admin
+        if not await helpers.authorize_interaction(interaction):
+            return  # Stop execution if the user is not authorized
+
+        try:
+            if target == "mc_players":
+                if os.path.exists("_data/stats.csv"):
+                    os.remove("_data/stats.csv")
+                    await interaction.response.send_message("✅ Minecraft player data has been deleted.", ephemeral=True)
+                else:
+                    await interaction.response.send_message("⚠️ No Minecraft player data found.", ephemeral=True)
+            elif target == "discord_users":
+                st.clear_state()
+                await interaction.response.send_message("✅ Discord user data has been deleted.", ephemeral=True)
+            elif target == "both":
+                if os.path.exists("_data/stats.csv"):
+                    os.remove("_data/stats.csv")
+                st.clear_state()
+                await interaction.response.send_message("✅ Both Minecraft player data and Discord user data have been deleted.", ephemeral=True)
+            else:
+                await interaction.response.send_message("⚠️ Invalid choice. Please select an option.", ephemeral=True)
+        except Exception as e:
+            log.error(f"Error during reset command: {e}")
+            await interaction.response.send_message("❌ An error occurred while processing your request.", ephemeral=True)
+
+    # Using choises without a groups doesn't work.
+    # Need to add the function manually:
+    bot.tree.add_command(slash_reset)

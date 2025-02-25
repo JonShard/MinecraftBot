@@ -64,7 +64,8 @@ def register_commands(bot):
             "- 💥  **/crashes**: Show and download recent crash reports.\n"
             "- 🎛️  **/server**: Control or check the MC server instance (stop, start, restart, status).\n"
             "- 🔌  **/reboot** 🔒: Reboot the physical machine.\n"
-            "- 🗑️  **/wipe** 🔒: Delete the world. (Confirm Yes/No)\n\n"
+            "- 🗑️  **/wipe** 🔒: Delete the world. (Confirm Yes/No)\n"
+            "- 🧹 **/reset** 🔒: Delete the bot's data about the MC server or its Discord users\n\n"
             
             "*Check the bot's source code here: [GitHub](https://github.com/JonShard/MinecraftBot)*"
         )

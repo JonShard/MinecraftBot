@@ -65,3 +65,22 @@ def save_state():
             )
     except Exception as e:
         log.error(f"Failed to save state: {e}")
+        
+def clear_state():
+    """
+    Clears the current state and deletes the state file.
+    """
+    global state
+    
+    # Reset state to a fresh instance
+    state = State()
+    
+    # Remove the state file if it exists
+    if os.path.exists(STATE_FILE):
+        try:
+            os.remove(STATE_FILE)
+            log.debug("State file deleted successfully.")
+        except Exception as e:
+            log.error(f"Failed to delete state file: {e}")
+    else:
+        log.debug("State file does not exist, nothing to delete.")
