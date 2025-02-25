@@ -1,5 +1,5 @@
+import re
 import datetime
-
 from discord.ext import tasks
 
 import utility.globals as globals
@@ -135,3 +135,74 @@ async def notify_external_chunks(bot):
 
         # Set a cooldown of N minutes before the next notification
         ext_chunk_notification_cooldown_until = now + datetime.timedelta(minutes=cfg.config.notifications.notification_cooldown_min)
+
+
+
+
+generic_error_notification_cooldown_until = None  # Time until the next notification
+# Error message search patterns and explanations separated by colon (':')
+GENERIC_ERROR_PATTERNS = {
+    "Failed to store chunk": "The server couldn't save a chunk properly. This might indicate disk issues or corrupted data.",
+    "Forcing regeneration of chunk": "The server is regenerating a chunk due to corruption or missing data.",
+    "Rebuilding corrupted chunk": "A chunk was detected as corrupted and is being rebuilt.",
+    "Missing chunk": "A requested chunk was missing. This could lead to visual glitches or desync.",
+    "stream is truncated: expected": "A chunk's data appears incomplete. This might indicate file corruption or interrupted saving.",
+    "\[-16, -18\]": "Twisted's chunk was mentioned, is it still in one piece?"
+}
+GENERIC_ERRORS_REGEX = re.compile("|".join(GENERIC_ERROR_PATTERNS.keys()))
+
+@tasks.loop(minutes=cfg.config.notifications.check_last_min)
+async def notify_generic_errors(bot):
+    """
+    Checks for chunk-related errors and other generic errors in latest.log and sends notifications to subscribed users.
+    Implements a cooldown to avoid spam.
+    """
+    global generic_error_notification_cooldown_until
+
+    # Check if notifications are enabled
+    if not cfg.config.notifications.errors_enabled:
+        log.debug("Task notify_generic_errors: Notifications are disabled.")
+        return
+
+    # Check cooldown before proceeding
+    now = datetime.datetime.now()
+    if generic_error_notification_cooldown_until and now < generic_error_notification_cooldown_until:
+        log.debug(f"Task notify_generic_errors: Skipping check. Notifications on cooldown until {generic_error_notification_cooldown_until}.")
+        return
+
+    log.debug("Running Task: notify_generic_errors")
+
+    # Read latest.log file
+    with open(cfg.config.minecraft.log_file_path, 'r', encoding='utf-8', errors='ignore') as log_file:
+        log_contents = log_file.readlines()
+
+    detected_messages = []
+    time_threshold = now - datetime.timedelta(minutes=cfg.config.notifications.check_last_min)
+    
+    for line in log_contents:
+        # Extract timestamp from log line
+        timestamp_match = re.match(r"^\[(\d{1,2})([a-zA-Z]{3})\.(\d{4}) (\d{2}):(\d{2}):(\d{2})\]", line)
+        if timestamp_match:
+            log_time = datetime.datetime.strptime("{} {} {} {}:{}:{}".format(*timestamp_match.groups()), "%d %b %Y %H:%M:%S")
+            if log_time < time_threshold:
+                continue  # Skip old logs
+        
+        match = GENERIC_ERRORS_REGEX.search(line)
+        if match:
+            useful_message = re.sub(r"^.*\[.*?\] \[.*?\] \[.*?/\]: ", "", line.strip())
+            explanation = GENERIC_ERROR_PATTERNS.get(match.group(0), "Unknown error detected.")
+            detected_messages.append((useful_message, explanation))
+
+    if detected_messages:
+        notified_count = 0
+        for user_id in st.state.error_subed_users:
+            user = await bot.fetch_user(int(user_id))
+            for msg, explanation in detected_messages:
+                await user.send(f"⚠️ Error detected on the Minecraft server!\n```log\n{msg}\n```{explanation}")
+                log.debug(f"Notifying generic error to userID: {user_id}")
+                notified_count += 1
+
+        log.info(f"Generic Errors detected. Notified {notified_count} users.")
+
+        # Set a cooldown before the next notification
+        generic_error_notification_cooldown_until = now + datetime.timedelta(minutes=cfg.config.notifications.notification_cooldown_min)

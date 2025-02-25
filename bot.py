@@ -62,9 +62,10 @@ async def start_tasks():
     ops_tasks.backup_task.start()
     ops_tasks.restart_task.start()
     # Notification tasks
-    noti_tasks.notify_player_join.start(bot)
-    noti_tasks.notify_server_behind.start(bot)
-    noti_tasks.notify_external_chunks.start(bot)
+    noti_tasks.notify_player_join.start(bot)     # Player joined
+    noti_tasks.notify_server_behind.start(bot)   # Server is lagging
+    noti_tasks.notify_external_chunks.start(bot) # external chunks might be causing lag
+    noti_tasks.notify_generic_errors.start(bot)    # chunks might be broken, player base might be affected
     
 # ──────────────────────────
 # Bot Lifecycle
