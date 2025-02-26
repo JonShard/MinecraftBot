@@ -1,4 +1,5 @@
 bot:
+  sync_commands: False  # Whether to sync commands with Discord on startup
   bot_token: ""  # Discord bot token (keep this secret)
   discord_char_limit: 2000  # Maximum message length allowed in Discord
   discord_dropdown_limit: 25  # Maximum options in dropdown menus
@@ -35,11 +36,18 @@ curseforge:
   base_url: https://api.curseforge.com
 
 notifications:
-  errors_enabled: True
-  check_last_min: 1 
+  errors_enabled: True # Whether to send notifications for MC errors
+  check_last_min: 1 # How often in minutes to check for errors in the minecraft log
   threshold_sec: 10 # if there has been 10sec of lag in th last 10min, send a notification and mute for 30min
-  lag_window_min: 10
-  notification_cooldown_min: 30
+  lag_window_min: 10 # How far back search the MC logs for lag in minutes
+  notification_cooldown_min: 30 # After sending a notification, wait this long before sending another of the same type.
+  generic_error_patterns: # Dictionary of MC log error patterns and their corresponding explanations .
+    "Failed to store chunk": "The server couldn't save a chunk properly. This might indicate disk issues or corrupted data."
+    "Forcing regeneration of chunk": "The server is regenerating a chunk due to corruption or missing data."
+    "Rebuilding corrupted chunk": "A chunk was detected as corrupted and is being rebuilt."
+    "Missing chunk": "A requested chunk was missing. This could lead to visual glitches or desync."
+    "stream is truncated: expected": "A chunk's data appears incomplete. This might indicate file corruption or interrupted saving."
+
 
 stats:
   csv_interval_min: 5  # How often to log player stats (in minutes)

@@ -76,13 +76,16 @@ async def on_ready():
     await st.load_state()
     st.save_state()
     
-    try:
-        log.info("Attempting to sync commands...")
-        synced_commands = await bot.tree.sync()        
-        log.info(f"Synced {len(synced_commands)} commands.")        
-    except Exception as e:
-        log.error(f"Error syncing slash commands: {e}")
-
+    if cfg.config.bot.sync_commands:
+        try:
+            log.info("Attempting to sync commands...")
+            synced_commands = await bot.tree.sync()        
+            log.info(f"Synced {len(synced_commands)} commands.")        
+        except Exception as e:
+            log.error(f"Error syncing slash commands: {e}")
+    else:
+        log.info("Skipping commands sync.")
+        
     await start_tasks()
     log.info(f"Logged in as {bot.user} (ID: {bot.user.id})")
 

@@ -140,17 +140,6 @@ async def notify_external_chunks(bot):
 
 
 generic_error_notification_cooldown_until = None  # Time until the next notification
-# Error message search patterns and explanations separated by colon (':')
-GENERIC_ERROR_PATTERNS = {
-    "Failed to store chunk": "The server couldn't save a chunk properly. This might indicate disk issues or corrupted data.",
-    "Forcing regeneration of chunk": "The server is regenerating a chunk due to corruption or missing data.",
-    "Rebuilding corrupted chunk": "A chunk was detected as corrupted and is being rebuilt.",
-    "Missing chunk": "A requested chunk was missing. This could lead to visual glitches or desync.",
-    "stream is truncated: expected": "A chunk's data appears incomplete. This might indicate file corruption or interrupted saving.",
-    "\[-16, -18\]": "Twisted's chunk was mentioned, is it still in one piece?"
-}
-GENERIC_ERRORS_REGEX = re.compile("|".join(GENERIC_ERROR_PATTERNS.keys()))
-
 @tasks.loop(minutes=cfg.config.notifications.check_last_min)
 async def notify_generic_errors(bot):
     """
@@ -173,6 +162,13 @@ async def notify_generic_errors(bot):
 
     log.debug("Running Task: notify_generic_errors")
 
+    # Compile MC log error patterns from config file
+    # Error message search patterns and explanations separated by colon (':')
+    generic_error_patterns = cfg.config.notifications.generic_error_patterns
+    escaped_patterns = [re.escape(pattern) for pattern in generic_error_patterns.keys()]
+    generic_error_regex = re.compile(r"(" + "|".join(escaped_patterns) + r")")
+    log.debug(f"Generic Error Patterns: {generic_error_patterns}")
+    
     # Read latest.log file
     with open(cfg.config.minecraft.log_file_path, 'r', encoding='utf-8', errors='ignore') as log_file:
         log_contents = log_file.readlines()
@@ -187,11 +183,11 @@ async def notify_generic_errors(bot):
         
         # Search for generic errors in the log line
         log.debug(f"Checking line: {line}")
-        error_match = GENERIC_ERRORS_REGEX.search(line)
+        error_match = generic_error_regex.search(line)
         if error_match:
             log.debug(f"Detected generic error in line: {line}")
             useful_message = re.sub(r"^.*\[.*?\] \[.*?\] \[.*?/\]: ", "", line.strip())
-            explanation = GENERIC_ERROR_PATTERNS.get(error_match.group(0), "Unknown error detected.")
+            explanation = generic_error_patterns.get(error_match.group(0), "Unknown error detected.")
             detected_messages.append((useful_message, explanation))
    
     # Notify users if any errors were detected
@@ -207,4 +203,5 @@ async def notify_generic_errors(bot):
         log.info(f"Generic Errors detected. Notified {notified_count} users.")
 
         # Set a cooldown before the next notification
-        generic_error_notification_cooldown_until = now + datetime.timedelta(minutes=cfg.config.notifications.notification_cooldown_min)
+        generic_error_notification_cooldown_until = now + datetime.timedelta(minutes=cfg.config.notifications.notification_cooldown_min)# Error message search patterns and explanations separated by colon (':')
+

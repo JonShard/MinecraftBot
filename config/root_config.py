@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Dict, List, Optional
 import os
 
 from .restart_config import RestartConfig
@@ -16,6 +16,7 @@ class PresenceConfig:
 
 @dataclass
 class BotConfig:
+    sync_commands: bool = True
     bot_token: str = ""
     discord_char_limit: int = 2000
     discord_dropdown_limit: int = 25
@@ -85,6 +86,7 @@ class NotificationConfig:
     threshold_sec: int = 10
     lag_window_min: int = 10
     notification_cooldown_min: int = 30
+    generic_error_patterns: Dict[str, str] = field(default_factory=dict) # Dict of error patterns and their corresponding explanations 
 
 @dataclass
 class Config:
