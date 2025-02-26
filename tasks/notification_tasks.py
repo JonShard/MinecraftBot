@@ -9,7 +9,7 @@ from utility.logger import get_logger
 log = get_logger()
 
 import utility.rcon_helpers as rcon_helpers
-
+import utility.helper_functions as helpers
 
         
 tracked_players = []
@@ -166,6 +166,7 @@ async def notify_generic_errors(bot):
 
     # Check cooldown before proceeding
     now = datetime.datetime.now()
+    one_minute_ago = now - datetime.timedelta(minutes=cfg.config.notifications.check_last_min)# Calculate time 1 minute ago to filter logs
     if generic_error_notification_cooldown_until and now < generic_error_notification_cooldown_until:
         log.debug(f"Task notify_generic_errors: Skipping check. Notifications on cooldown until {generic_error_notification_cooldown_until}.")
         return
@@ -175,24 +176,25 @@ async def notify_generic_errors(bot):
     # Read latest.log file
     with open(cfg.config.minecraft.log_file_path, 'r', encoding='utf-8', errors='ignore') as log_file:
         log_contents = log_file.readlines()
-
-    detected_messages = []
-    time_threshold = now - datetime.timedelta(minutes=cfg.config.notifications.check_last_min)
     
+    detected_messages = []
     for line in log_contents:
-        # Extract timestamp from log line
-        timestamp_match = re.match(r"^\[(\d{1,2})([a-zA-Z]{3})\.(\d{4}) (\d{2}):(\d{2}):(\d{2})\]", line)
-        if timestamp_match:
-            log_time = datetime.datetime.strptime("{} {} {} {}:{}:{}".format(*timestamp_match.groups()), "%d %b %Y %H:%M:%S")
-            if log_time < time_threshold:
-                continue  # Skip old logs
+        # Check if the entry is within the last minute, if old, skip
+        log_timestamp =helpers.extract_timestamp(line)
+        if log_timestamp and log_timestamp < one_minute_ago:
+            log.debug(f"Skipping old line from: {log_timestamp}")
+            continue
         
-        match = GENERIC_ERRORS_REGEX.search(line)
-        if match:
+        # Search for generic errors in the log line
+        log.debug(f"Checking line: {line}")
+        error_match = GENERIC_ERRORS_REGEX.search(line)
+        if error_match:
+            log.debug(f"Detected generic error in line: {line}")
             useful_message = re.sub(r"^.*\[.*?\] \[.*?\] \[.*?/\]: ", "", line.strip())
-            explanation = GENERIC_ERROR_PATTERNS.get(match.group(0), "Unknown error detected.")
+            explanation = GENERIC_ERROR_PATTERNS.get(error_match.group(0), "Unknown error detected.")
             detected_messages.append((useful_message, explanation))
-
+   
+    # Notify users if any errors were detected
     if detected_messages:
         notified_count = 0
         for user_id in st.state.error_subed_users:

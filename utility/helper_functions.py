@@ -533,3 +533,23 @@ def validate_timestamp(before_date: str) -> datetime:
 
         return timestamp
     return now
+
+
+timestamp_regex = None
+def extract_timestamp(log_line):
+    global timestamp_regex
+    if timestamp_regex is None:
+        timestamp_regex = re.compile(
+            r'^\[(?P<day>\d{1,2})(?P<month>[a-zA-Z]{3})\.?(?P<year>\d{4}) (?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})\.(?P<millis>\d+)\]'
+        )
+    # Extract matched timestamp
+    ts_match = timestamp_regex.match(log_line)
+    if ts_match:
+        log_day = ts_match.group("day")
+        log_month = ts_match.group("month").capitalize()
+        log_year = ts_match.group("year")
+        log_time = f"{ts_match.group('hour')}:{ts_match.group('minute')}:{ts_match.group('second')}.{ts_match.group('millis')}"
+
+        log_timestamp_str = f"{log_day}{log_month}{log_year} {log_time}"
+        return datetime.datetime.strptime(log_timestamp_str, "%d%b%Y %H:%M:%S.%f")
+    return None
