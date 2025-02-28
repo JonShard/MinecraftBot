@@ -78,6 +78,7 @@ class UsernameDropdown(discord.ui.Select):
                     for user_id in st.state.join_subed_users
                 ]
                 await interaction.response.send_message("✅ You will not be notified about yourself joining") 
+                
 class UsernameSelectView(discord.ui.View):
     def __init__(self, user_id, options):
         super().__init__(timeout=60)
