@@ -42,7 +42,7 @@ async def background_chat_update_task(channel_id: int):
             except Exception as e:
                 log.error(f"Failed to delete expired chat window in channel {channel_id}: {e}")
             del globals.chat_windows[channel_id]
-            log.debug(f"Chat window in channel {channel_id} expired.")
+            log.debug(f"Task background_chat_update_task: Chat window in channel {channel_id} expired.")
             return
 
         # Otherwise, update the message
@@ -52,7 +52,7 @@ async def background_chat_update_task(channel_id: int):
         try:
             await data["message"].edit(content=new_content)
         except Exception as e:
-            log.error(f"Failed to edit chat window in channel {channel_id}: {e}")
+            log.error(f"Task background_chat_update_task: Failed to edit chat window in channel {channel_id}: {e}")
             # Remove and stop
             del globals.chat_windows[channel_id]
             return
@@ -61,7 +61,7 @@ async def background_chat_update_task(channel_id: int):
 @tasks.loop(minutes=1)
 async def clear_daily_state():
     """Removes players in players_today stat from state"""
-    log.debug("Running Task: clear_daily_state")
+    log.debug("Task clear_daily_state: Running Task")
     now = datetime.datetime.now()
     if now.hour == 0 and now.minute == 0: # Run at midnight
         st.state.mc_players_today.clear()
@@ -72,7 +72,7 @@ async def clear_daily_state():
 @tasks.loop(minutes=1) # Has to run every 1 minute. Logic assumes that each element in globals.lag_history is 1 minute apart
 async def update_lag_history():
     """Updates global variable lag_history with lag data from the log file"""
-    log.debug("Running Task: update_lag_history")
+    log.debug("Task update_lag_history: Running Task")
     now = datetime.datetime.now()
     one_minute_ago = now - datetime.timedelta(minutes=cfg.config.notifications.check_last_min)# Calculate time 1 minute ago to filter logs
     

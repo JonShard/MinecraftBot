@@ -42,11 +42,11 @@ notifications:
   lag_window_min: 10 # How far back search the MC logs for lag in minutes
   notification_cooldown_min: 30 # After sending a notification, wait this long before sending another of the same type.
   generic_error_patterns: # Dictionary of MC log error patterns and their corresponding explanations .
-    "Failed to store chunk": "The server couldn't save a chunk properly. This might indicate disk issues or corrupted data."
-    "Forcing regeneration of chunk": "The server is regenerating a chunk due to corruption or missing data."
-    "Rebuilding corrupted chunk": "A chunk was detected as corrupted and is being rebuilt."
+    "Failed to store chunk": "The server couldn't save a chunk properly. This might indicate disk issues or corrupted data.\nConsider investigating the chunk and do a `/backup restore` if it was important."
+    "Forcing regeneration of chunk": "The server is regenerating a chunk due to corruption or missing data.\nConsider investigating the chunk and do a `/backup restore` if it was important."
+    "Rebuilding corrupted chunk": "A chunk was detected as corrupted and is being rebuilt.\nConsider investigating the chunk and do a `/backup restore` if it was important."
     "Missing chunk": "A requested chunk was missing. This could lead to visual glitches or desync."
-    "stream is truncated: expected": "A chunk's data appears incomplete. This might indicate file corruption or interrupted saving."
+    "stream is truncated: expected": "A chunk's data appears incomplete. This might indicate file corruption or interrupted saving.\nConsider investigating the chunk and do a `/backup restore` if it is reset or broken."
 
 
 stats:
