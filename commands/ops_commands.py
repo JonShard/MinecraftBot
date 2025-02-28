@@ -352,7 +352,6 @@ def register_commands(bot):
         if not await helpers.authorize_interaction(interaction):
             return  # Stop execution if the user is not authorized
 
-
         # Show the confirmation modal
         await interaction.response.send_modal(WipeConfirmationModal())
         
@@ -439,8 +438,46 @@ def register_commands(bot):
                 f"Error retrieving crash reports: {str(e)}", ephemeral=True
             )
     
+    
+    class ResetConfirmationModal(ui.Modal, title="Confirm Reset Bot Data"):
+        def __init__(self, target):
+            super().__init__()
+            self.target = target
+        # Confirmation field (to type "YES" for confirmation)
+        confirmation = ui.TextInput(
+            label="Type 'YES' to confirm",
+            placeholder="Type 'YES' to confirm",
+            style=discord.TextStyle.short,
+            required=True,
+            max_length=3
+        )
+
+        async def on_submit(self, interaction: discord.Interaction):
+            # Check if the confirmation input matches "YES"
+            if self.confirmation.value.strip().upper() == "YES":
+                try:
+                    if self.target == "mc_players":
+                        if os.path.exists("_data/stats.csv"):
+                            os.remove("_data/stats.csv")
+                            await interaction.response.send_message("✅ Minecraft player data has been deleted.", ephemeral=True)
+                        else:
+                            await interaction.response.send_message("⚠️ No Minecraft player data found.", ephemeral=True)
+                    elif self.target == "discord_users":
+                        st.clear_state()
+                        await interaction.response.send_message("✅ Discord user data has been deleted.", ephemeral=True)
+                    elif self.target == "both":
+                        if os.path.exists("_data/stats.csv"):
+                            os.remove("_data/stats.csv")
+                        st.clear_state()
+                        await interaction.response.send_message("✅ Both Minecraft player data and Discord user data have been deleted.", ephemeral=True)
+                    else:
+                        await interaction.response.send_message("⚠️ Invalid choice. Please select an option.", ephemeral=True)
+                except Exception as e:
+                    log.error(f"Error during reset command: {e}")
+                    await interaction.response.send_message("❌ An error occurred while processing your request.", ephemeral=True)
             
-    @app_commands.command(name="reset", description="🔒 Delete the bot's data about the MC server or its Discord users")
+            
+    @app_commands.command(name="reset", description="🔒 Delete the bot's data about the MC server or its Discord users. (Confirm Yes/No)")
     @app_commands.choices(target=[
         discord.app_commands.Choice(name="Minecraft Player Data", value="mc_players"),
         discord.app_commands.Choice(name="Discord User Data", value="discord_users"),
@@ -451,26 +488,11 @@ def register_commands(bot):
         if not await helpers.authorize_interaction(interaction):
             return  # Stop execution if the user is not authorized
 
-        try:
-            if target == "mc_players":
-                if os.path.exists("_data/stats.csv"):
-                    os.remove("_data/stats.csv")
-                    await interaction.response.send_message("✅ Minecraft player data has been deleted.", ephemeral=True)
-                else:
-                    await interaction.response.send_message("⚠️ No Minecraft player data found.", ephemeral=True)
-            elif target == "discord_users":
-                st.clear_state()
-                await interaction.response.send_message("✅ Discord user data has been deleted.", ephemeral=True)
-            elif target == "both":
-                if os.path.exists("_data/stats.csv"):
-                    os.remove("_data/stats.csv")
-                st.clear_state()
-                await interaction.response.send_message("✅ Both Minecraft player data and Discord user data have been deleted.", ephemeral=True)
-            else:
-                await interaction.response.send_message("⚠️ Invalid choice. Please select an option.", ephemeral=True)
-        except Exception as e:
-            log.error(f"Error during reset command: {e}")
-            await interaction.response.send_message("❌ An error occurred while processing your request.", ephemeral=True)
+        # Show the confirmation modal
+        await interaction.response.send_modal(ResetConfirmationModal(target))
+
+
+
 
     # Using choises without a groups doesn't work.
     # Need to add the function manually:
