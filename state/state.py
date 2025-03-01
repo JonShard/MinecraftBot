@@ -14,6 +14,8 @@ state = None
 class State:
     join_subed_users: List[str] = field(default_factory=list)
     error_subed_users: List[str] = field(default_factory=list)
+    advancements_subed_users: List[str] = field(default_factory=list)  # New field
+    
     mc_players_today: List[str] = field(default_factory=list)
     mc_players_ever: List[str] = field(default_factory=list)
     
@@ -36,6 +38,7 @@ async def load_state() -> bool:
             state = State(
                 join_subed_users=data.get("join_subed_users", []),
                 error_subed_users=data.get("error_subed_users", []),
+                advancements_subed_users=data.get("advancements_subed_users", []),
                 mc_players_today=data.get("mc_players_today", []),
                 mc_players_ever=data.get("mc_players_ever", [])
         )
@@ -57,6 +60,7 @@ def save_state():
                 {
                     "join_subed_users": state.join_subed_users,
                     "error_subed_users": state.error_subed_users,
+                    "advancements_subed_users": state.advancements_subed_users,
                     "mc_players_today": state.mc_players_today,
                     "mc_players_ever": state.mc_players_ever,
                 },

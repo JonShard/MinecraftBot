@@ -81,8 +81,11 @@ class StatsConfig:
 
 @dataclass
 class NotificationConfig:
+    advancements_enabled: bool = True
     errors_enabled: bool = True
-    check_last_min: int = 1
+    check_last_min_advancements: int = 1
+    check_last_min_errors: int = 1 
+    check_last_min_joins: int = 1
     threshold_sec: int = 10
     lag_window_min: int = 10
     notification_cooldown_min: int = 30

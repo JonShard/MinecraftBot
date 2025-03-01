@@ -37,10 +37,13 @@ curseforge:
 
 notifications:
   errors_enabled: True # Whether to send notifications for MC errors
-  check_last_min: 1 # How often in minutes to check for errors in the minecraft log
+  check_last_min_joins: 1 # How often in minutes to check for player joins
+  check_last_min_errors: 1  # How often in minutes to check for errors in the minecraft log
+  check_last_min_advancements: 1  # How often in minutes to check for player advancements
   threshold_sec: 10 # if there has been 10sec of lag in th last 10min, send a notification and mute for 30min
   lag_window_min: 10 # How far back search the MC logs for lag in minutes
   notification_cooldown_min: 30 # After sending a notification, wait this long before sending another of the same type.
+  advancements_enabled: True  # Whether to send notifications for player advancements
   generic_error_patterns: # Dictionary of MC log error patterns and their corresponding explanations .
     "Failed to store chunk": "The server couldn't save a chunk properly. This might indicate disk issues or corrupted data.\nConsider investigating the chunk and do a `/backup restore` if it was important."
     "Forcing regeneration of chunk": "The server is regenerating a chunk due to corruption or missing data.\nConsider investigating the chunk and do a `/backup restore` if it was important."

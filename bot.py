@@ -66,6 +66,7 @@ async def start_tasks():
     noti_tasks.notify_server_behind.start(bot)   # Server is lagging
     noti_tasks.notify_external_chunks.start(bot) # external chunks might be causing lag
     noti_tasks.notify_generic_errors.start(bot)    # chunks might be broken, player base might be affected
+    noti_tasks.notify_advancements.start(bot)    # Player got an advancement
     
 # ──────────────────────────
 # Bot Lifecycle

@@ -12,12 +12,12 @@ import utility.rcon_helpers as rcon_helpers
 import utility.helper_functions as helpers
 
 
-first_run = True # Flag to skip notifications on the first run
+join_first_run = True # Flag to skip notifications on the first run
 tracked_players = []
-@tasks.loop(minutes=1)
+@tasks.loop(minutes=cfg.config.notifications.check_last_min_joins)
 async def notify_player_join(bot):
     """Uses state to send DM to users who as subscriberd to being updated when a player joins"""
-    global tracked_players, first_run
+    global tracked_players, join_first_run
     log.debug("Task notify_player_join: Running Task. Tracked players: " + str(tracked_players))
     # Check if any new players have joined
     players = await rcon_helpers.get_players()    
@@ -32,9 +32,9 @@ async def notify_player_join(bot):
     tracked_players = players
     
     # Don't notify on the first run, if the bot was just restarted, we don't want to spam users
-    if first_run:
+    if join_first_run:
         log.debug("Task notify_player_join: Skipping first run.")
-        first_run = False
+        join_first_run = False
         return
     
     # If new players notify discord users (in a list if many new players: 'user1, user2, and user3 joined')
@@ -63,7 +63,7 @@ async def notify_player_join(bot):
 
 # Global state for tracking lag history and cooldown
 behind_notification_cooldown_until = None  # Time until we allow the next notification
-@tasks.loop(minutes=cfg.config.notifications.check_last_min)
+@tasks.loop(minutes=cfg.config.notifications.check_last_min_errors)
 async def notify_server_behind(bot):
     """
     Uses state to send a DM to users subscribed to lag updates.
@@ -86,10 +86,10 @@ async def notify_server_behind(bot):
     log.debug("Task notify_server_behind: Running Task")
 
     # Take a slice of the last cfg.config.notifications.lag_window_min out of globals.lag_history
-    lag_history_slice = globals.lag_history[-cfg.config.notifications.lag_window_min:]
+    lag_history = globals.lag_history[-cfg.config.notifications.lag_window_min:]
     
     # Calculate total lag over the last N minutes using the slice
-    total_lag_in_window = sum(lag_history_slice)
+    total_lag_in_window = sum(lag_history)
 
     log.debug(f"Task notify_server_behind: Total lag last {cfg.config.notifications.lag_window_min} min: {total_lag_in_window} sec (Threshold: {cfg.config.notifications.threshold_sec})")
 
@@ -112,9 +112,8 @@ async def notify_server_behind(bot):
 
 
 
-
 ext_chunk_notification_cooldown_until = None  # Time until we allow the next notification
-@tasks.loop(minutes=cfg.config.notifications.check_last_min)
+@tasks.loop(minutes=cfg.config.notifications.check_last_min_errors)
 async def notify_external_chunks(bot):
     """
     Uses state to send a DM to users subscribed to external chunk updates.
@@ -154,16 +153,14 @@ async def notify_external_chunks(bot):
 
 
 
-
-generic_error_notification_cooldown_until = None  # Time until the next notification
-@tasks.loop(minutes=cfg.config.notifications.check_last_min)
+generic_errors_notification_cooldown_until = None  # Time until the next notification
+@tasks.loop(minutes=cfg.config.notifications.check_last_min_advancements)
 async def notify_generic_errors(bot):
     """
     Checks for chunk-related errors and other generic errors in latest.log and sends notifications to subscribed users.
     Implements a cooldown to avoid spam.
     """
-    global generic_error_notification_cooldown_until
-
+    global generic_errors_notification_cooldown_until
     # Check if notifications are enabled
     if not cfg.config.notifications.errors_enabled:
         log.debug("Task notify_generic_errors: Notifications are disabled.")
@@ -171,11 +168,10 @@ async def notify_generic_errors(bot):
 
     # Check cooldown before proceeding
     now = datetime.datetime.now()
-    one_minute_ago = now - datetime.timedelta(minutes=cfg.config.notifications.check_last_min)# Calculate time 1 minute ago to filter logs
-    if generic_error_notification_cooldown_until and now < generic_error_notification_cooldown_until:
-        log.debug(f"Task notify_generic_errors: Skipping check. Notifications on cooldown until {generic_error_notification_cooldown_until}.")
+    last_check_time = now - datetime.timedelta(minutes=cfg.config.notifications.check_last_min_errors)# Calculate time 1 minute ago to filter logs
+    if generic_errors_notification_cooldown_until and now < generic_errors_notification_cooldown_until:
+        log.debug(f"Task notify_generic_errors: Skipping check. Notifications on cooldown until {advancements_notification_cooldown_until}.")
         return
-
     log.debug("Task notify_generic_errors: Running Task")
 
     # Compile MC log error patterns from config file
@@ -194,7 +190,7 @@ async def notify_generic_errors(bot):
     for line in log_contents:
         # Check if the entry is within the last minute, if old, skip
         log_timestamp =helpers.extract_timestamp(line)
-        if log_timestamp and log_timestamp < one_minute_ago:
+        if log_timestamp and log_timestamp < last_check_time:
             # log.debug(f"Skipping old line from: {log_timestamp}") # Spammy
             continue
         
@@ -220,5 +216,76 @@ async def notify_generic_errors(bot):
         log.info(f"Task notify_generic_errors: Generic Errors detected. Notified {notified_count} users.")
 
         # Set a cooldown before the next notification
-        generic_error_notification_cooldown_until = now + datetime.timedelta(minutes=cfg.config.notifications.notification_cooldown_min)# Error message search patterns and explanations separated by colon (':')
+        generic_errors_notification_cooldown_until = now + datetime.timedelta(minutes=cfg.config.notifications.notification_cooldown_min)# Error message search patterns and explanations separated by colon (':')
     log.debug(f"Task notify_generic_errors: Scanned {scanned_lines} lines. Detected {len(detected_messages)} error messages.")
+    
+
+advancements_first_run = True # Flag to skip notifications on the first run
+advancements_notification_cooldown_until = None  # Time until the next notification
+@tasks.loop(minutes=cfg.config.notifications.check_last_min_advancements)
+async def notify_advancements(bot):
+    """
+        Uses state to send a DM to users subscribed for advancement notifications.
+        The function reads the Minecraft server log, checks for advancements made in the last N minutes,
+        and sends notifications to subscribed users.
+        Implements a cooldown to avoid spam.
+    """
+    global advancements_notification_cooldown_until
+
+    # Don't notify on the first run, if the bot was just restarted, we don't want to spam users
+    if advancements_first_run:
+        log.debug("Task notify_advancement: Skipping first run.")
+        advancements_first_run = False
+        return
+
+    # Check if notifications are enabled
+    if not cfg.config.notifications.advancements_enabled:
+        log.debug("Task notify_advancement: Notifications are disabled.")
+        return
+
+    # Check cooldown before proceeding
+    now = datetime.datetime.now()
+    last_check_time = now - datetime.timedelta(minutes=cfg.config.notifications.check_last_min_advancements)# Calculate time 1 minute ago to filter logs
+    if advancements_notification_cooldown_until and now < advancements_notification_cooldown_until:
+        log.debug(f"Task notify_advancement: Skipping check. Notifications on cooldown until {advancements_notification_cooldown_until}.")
+        return
+
+    log.debug("Task notify_advancement: Running Task")
+    advancements_regex = re.compile(r"^\[.*?\] \[.*?\] \[.*?/\]: \w+ has made the advancement \[.*?\]$")
+
+    # Read latest.log file
+    with open(cfg.config.minecraft.log_file_path, 'r', encoding='utf-8', errors='ignore') as log_file:
+        log_contents = log_file.readlines()
+    
+    scanned_lines = 0
+    detected_messages = []
+    for line in log_contents:
+        # Check if the entry is within the last minute, if old, skip
+        log_timestamp =helpers.extract_timestamp(line)
+        if log_timestamp and log_timestamp < last_check_time:
+            # log.debug(f"Skipping old line from: {log_timestamp}") # Spammy
+            continue
+        
+        # Search for advancements in the log line
+        # log.debug(f"Checking line: {line}")
+        advancements_match = advancements_regex.search(line)
+        if advancements_match:
+            log.debug(f"Task notify_advancement: Detected generic error in line: {line}")
+            useful_message = re.sub(r"^.*\[.*?\] \[.*?\] \[.*?/\]: ", "", line.strip())
+            detected_messages.append(useful_message)
+        scanned_lines += 1
+        
+    if detected_messages:
+        condensed_messages = "\n".join(detected_messages)
+        notified_count = 0
+        for user_id in st.state.advancements_subed_users:
+            user = await bot.fetch_user(int(user_id))        
+            await user.send(f"🎉 Advancements made on the Minecraft server!\n```log\n{condensed_messages}\n```")
+            log.debug(f"Task notify_advancement: Notifying advancements to userID: {user_id}")
+            notified_count += 1
+
+        log.info(f"Task notify_advancement: Advancements detected. Notified {notified_count} users.")
+
+        # Set a cooldown before the next notification
+        advancements_notification_cooldown_until = now + datetime.timedelta(minutes=cfg.config.notifications.notification_cooldown_min)# Error message search patterns and explanations separated by colon (':')
+    log.debug(f"Task notify_advancement: Scanned {scanned_lines} lines. Detected {len(detected_messages)} advancements.")

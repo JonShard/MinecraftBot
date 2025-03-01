@@ -1,4 +1,3 @@
-
 import discord
 from discord.embeds import Embed
 from discord import ui, ButtonStyle
@@ -8,6 +7,7 @@ import state.state as st
 
 OPTION_JOINS = "Players Joining"
 OPTION_ERRORS = "Server Errors"
+OPTION_ADVANCEMENTS = "Player Advancements"
 
 def is_user_join_subed(user_id):
     return any(str(user_id) == str(sub).split('.')[0] for sub in st.state.join_subed_users)
@@ -19,6 +19,7 @@ class SettingsView(ui.View):
         self.user_id = user_id
         # Create a button for each setting
         self.add_item(SettingsButton(user_id, OPTION_JOINS, is_user_join_subed(user_id)))
+        self.add_item(SettingsButton(user_id, OPTION_ADVANCEMENTS,  user_id in st.state.advancements_subed_users))
         self.add_item(SettingsButton(user_id, OPTION_ERRORS, user_id in st.state.error_subed_users))
         
     async def on_timeout(self):
@@ -54,6 +55,9 @@ class SettingsButton(ui.Button):
             elif self.option == OPTION_ERRORS:
                 st.state.error_subed_users.append(self.user_id)
                 await interaction.response.edit_message(view=SettingsView(interaction.user.id))
+            elif self.option == OPTION_ADVANCEMENTS and not self.user_id in st.state.advancements_subed_users:
+                st.state.advancements_subed_users.append(self.user_id)
+                await interaction.response.edit_message(view=SettingsView(interaction.user.id))
        
         else:     # Unsubscribing    
             if self.option == OPTION_JOINS and is_user_join_subed(self.user_id):
@@ -63,7 +67,9 @@ class SettingsButton(ui.Button):
                 ]
             elif self.option == OPTION_ERRORS and self.user_id in st.state.error_subed_users:
                 st.state.error_subed_users.remove(self.user_id)
-                
+            elif self.option == OPTION_ADVANCEMENTS and self.user_id in st.state.advancements_subed_users:
+                st.state.advancements_subed_users.remove(self.user_id)
+
             await interaction.response.edit_message(view=SettingsView(interaction.user.id))
         st.save_state()
 

@@ -74,7 +74,7 @@ async def update_lag_history():
     """Updates global variable lag_history with lag data from the log file"""
     log.debug("Task update_lag_history: Running Task")
     now = datetime.datetime.now()
-    one_minute_ago = now - datetime.timedelta(minutes=cfg.config.notifications.check_last_min)# Calculate time 1 minute ago to filter logs
+    one_minute_ago = now - datetime.timedelta(minutes=cfg.config.notifications.check_last_min_errors)# Calculate time 1 minute ago to filter logs
     
     # Read log file
     with open(cfg.config.minecraft.log_file_path, 'r') as log_file:
