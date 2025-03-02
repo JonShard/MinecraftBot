@@ -230,7 +230,7 @@ async def notify_advancements(bot):
         and sends notifications to subscribed users.
         Implements a cooldown to avoid spam.
     """
-    global advancements_notification_cooldown_until
+    global advancements_notification_cooldown_until, advancements_first_run
 
     # Don't notify on the first run, if the bot was just restarted, we don't want to spam users
     if advancements_first_run:

@@ -415,8 +415,13 @@ def register_commands(bot):
 
     class CrashView(discord.ui.View):
         def __init__(self, interaction: discord.Interaction, crash_files: list[str]):
-            super().__init__(timeout=60)
+            super().__init__(timeout=300)
             self.add_item(CrashDropdown(interaction, crash_files))
+            self.interaction = interaction 
+            
+        async def on_timeout(self):    
+             message = await self.interaction.original_response()
+             await message.delete()
             
     @bot.tree.command(name="crashes", description="Show and download recent crash reports")
     async def slash_crashes(interaction: discord.Interaction):
@@ -424,15 +429,25 @@ def register_commands(bot):
             crash_files = sorted(
                 [f for f in os.listdir(cfg.config.minecraft.crash_reports_dir) if f.startswith("crash-")],
                 reverse=True
-            )[:cfg.config.bot.discord_dropdown_limit]  # Get the last configured number of crash files
-
+            )
+        
+            is_truncated = len(crash_files) > cfg.config.bot.discord_dropdown_limit
+            crash_files = crash_files[:cfg.config.bot.discord_dropdown_limit]  # Limit to 25 files
+        
             if not crash_files:
                 await interaction.response.send_message("No crash reports found.", ephemeral=True)
                 return
 
             view = CrashView(interaction, crash_files)
-            await interaction.response.send_message(f"Please select one of the last {cfg.config.bot.discord_dropdown_limit} crash reports:", view=view, ephemeral=True)
-            
+            if not is_truncated:
+                await interaction.response.send_message(f"Please select one of the `{len(crash_files)}` crash reports:", view=view, ephemeral=True)
+            else:
+                await interaction.response.send_message(
+                        f"There are too many crash reports. Showing last `{cfg.config.bot.discord_dropdown_limit}`.\n"
+                        f"Please select one of the crash reports:",
+                        view=view, ephemeral=True
+                )
+                
         except Exception as e:
             await interaction.response.send_message(
                 f"Error retrieving crash reports: {str(e)}", ephemeral=True
