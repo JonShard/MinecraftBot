@@ -431,7 +431,7 @@ def register_commands(bot):
                 return
 
             view = CrashView(interaction, crash_files)
-            await interaction.response.send_message("Please select one of the last {discord_dropdown_limit} crash reports:", view=view, ephemeral=True)
+            await interaction.response.send_message(f"Please select one of the last {cfg.config.bot.discord_dropdown_limit} crash reports:", view=view, ephemeral=True)
             
         except Exception as e:
             await interaction.response.send_message(
